@@ -2,7 +2,11 @@
 
 Charmap2 is a static Unicode character map for the browser. It is built to replace the parts of Windows Character Map that people actually use, with faster search, clearer metadata, and better copy behavior.
 
-Live site: `https://llaurila.github.io/charmap2/`
+## Live demo
+
+- Site: `https://llaurila.github.io/charmap2/`
+
+![Charmap2 screenshot](./screenshot.png)
 
 ## What it does
 
