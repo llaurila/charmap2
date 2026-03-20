@@ -1,31 +1,81 @@
 # Charmap2
 
-Charmap2 is a static web-based Unicode character map built to replace the parts of Windows Character Map that people actually need, without the clumsy UI that comes with it.
+Charmap2 is a static Unicode character map for the browser. It is built to replace the parts of Windows Character Map that people actually use, with faster search, clearer metadata, and better copy behavior.
 
-## The problem
+## What it does
 
-Windows Character Map is useful, but everyday tasks are harder than they should be. Search is weak, browsing is awkward, inspecting a character takes too many clicks, and copying text feels like working around the tool instead of using it. It is also a Windows-first utility, while many people now move between Windows and macOS.
+- search by character, official name, alias, abbreviation, block, script, or code point
+- preview the selected character with richer metadata
+- explain confusing invisible, control, formatting, and combining characters
+- copy the raw character plus common escaped forms
+- ship as a static site with no backend
 
-Charmap2 fixes that by moving the experience into the browser:
+## Status
 
-- fast search by name, alias, abbreviation, or code point
-- a large preview of the selected character
-- clear metadata and plain-English descriptions for special characters
-- one-click copy for the raw character and common escaped forms
-- a static site that works well on Windows and macOS
+Charmap2 is an early public project, but the repository already includes a working app, Unicode ingestion scripts, generated data, and tests. The current focus is polishing the MVP around single Unicode code points, including single-code-point emoji.
 
-## Scope
+See `SPECS.md` for the current product and implementation direction.
 
-The first version focuses on single Unicode code points, including single-code-point emoji. Multi-code-point emoji sequences, named sequences, and other composed sequences come later.
-
-## Technical direction
+## Stack
 
 - Vite
 - React
 - TypeScript
-- static hosting with no backend
+- Vitest
 - official Unicode Character Database files as the source of truth
 
-## Status
+## Local development
 
-This repository currently contains the product and implementation plan. See `SPECS.md` for the locked specification.
+Requirements:
+
+- Node.js 22 or newer
+- npm
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Start the dev server:
+
+```bash
+npm run dev
+```
+
+Run tests:
+
+```bash
+npm test
+```
+
+Build the app:
+
+```bash
+npm run build
+```
+
+## Unicode data pipeline
+
+- vendored Unicode source files live under `vendor/unicode/17.0.0/`
+- the app generates static assets into `public/unicode/17.0.0/`
+- the browser uses generated JSON, not raw Unicode text files
+
+Useful commands:
+
+```bash
+npm run vendor:unicode
+npm run generate:unicode
+```
+
+## Contributing
+
+Issues and pull requests are welcome. Please read `CONTRIBUTING.md` before making larger changes.
+
+For behavior changes that affect product scope, search rules, rendering rules, or data semantics, check `SPECS.md` first and call out any intentional spec changes in your PR.
+
+## License
+
+The Charmap2 source code is licensed under the MIT License. See `LICENSE`.
+
+This project also vendors and derives data from the Unicode Character Database. See `THIRD_PARTY_NOTICES.md` for attribution and related terms.

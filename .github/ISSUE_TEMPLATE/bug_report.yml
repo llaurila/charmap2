@@ -1,0 +1,40 @@
+name: Bug report
+description: Report a reproducible problem in Charmap2.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the search query, character, code point, or workflow that triggers the problem.
+      placeholder: |
+        1. Go to ...
+        2. Search for ...
+        3. Click ...
+        4. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser, OS, and any other relevant details.
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional context

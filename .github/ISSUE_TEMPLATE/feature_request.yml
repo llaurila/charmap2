@@ -1,0 +1,29 @@
+name: Feature request
+description: Suggest an improvement or new capability for Charmap2.
+title: "feat: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What user problem or workflow gap should this address?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach
+      description: Describe the behavior you want.
+    validations:
+      required: true
+  - type: textarea
+    id: spec
+    attributes:
+      label: Spec impact
+      description: Does this fit within `SPECS.md`, or would it require a spec change?
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
