@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { mockCharacters } from '../data/mockCharacters'
-import { normalizeSearchTerm, searchCharacters } from './search'
+import { getSingleCodePointQuery, normalizeSearchTerm, searchCharacters } from './search'
 
 describe('search helpers', () => {
   it('folds spaces, hyphens, and underscores together', () => {
@@ -15,5 +15,14 @@ describe('search helpers', () => {
   it('finds aliases and abbreviations', () => {
     const [result] = searchCharacters(mockCharacters, 'nbsp')
     expect(result?.cp).toBe(0x00a0)
+  })
+
+  it('uses fuzzy fallback when exact matching fails', () => {
+    const [result] = searchCharacters(mockCharacters, 'rgt arrw')
+    expect(result?.cp).toBe(0x2192)
+  })
+
+  it('keeps direct character lookup without trimming away whitespace', () => {
+    expect(getSingleCodePointQuery(' ')).toBe(0x20)
   })
 })

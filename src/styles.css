@@ -109,8 +109,10 @@ code {
 .hero-metrics {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   align-content: start;
   gap: 0.75rem;
+  justify-self: end;
 }
 
 .hero-metrics span,
@@ -190,6 +192,11 @@ code {
   margin-bottom: 0.75rem;
 }
 
+.search-status {
+  margin-top: 0.25rem;
+  font-size: 0.88rem;
+}
+
 .chip-list,
 .copy-grid {
   display: grid;
@@ -241,14 +248,21 @@ code {
 
 .results-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 0.85rem;
+}
+
+.results-scroller {
+  max-height: 70vh;
+  min-height: 24rem;
+  overflow: auto;
+  padding-right: 0.25rem;
 }
 
 .result-card {
   display: grid;
   gap: 0.9rem;
   padding: 1rem;
+  min-height: 11.25rem;
   border-radius: 22px;
   text-align: left;
   transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
@@ -395,6 +409,7 @@ code {
     grid-column: 1 / -1;
     position: static;
   }
+
 }
 
 @media (max-width: 840px) {
@@ -417,7 +432,8 @@ code {
     flex-direction: column;
   }
 
-  .results-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  .results-scroller {
+    max-height: 60vh;
+    min-height: 20rem;
   }
 }

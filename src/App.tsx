@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { UNICODE_VERSION } from './constants/unicode'
 import { featuredSets } from './data/featuredSets'
 import {
@@ -49,8 +49,16 @@ const summarizeCaseMap = (record: CharacterRecord): string => {
 }
 
 const summarizeFlags = (record: CharacterRecord): string => record.flags?.join(', ') ?? 'None'
+const RESULT_ROW_HEIGHT = 196
+const VIRTUAL_OVERSCAN_ROWS = 2
+const RESULT_GRID_GAP = 14
+const RESULT_CARD_MIN_WIDTH = 180
+const RESULT_CARD_MIN_WIDTH_NARROW = 150
+
+const clamp = (value: number, min: number, max: number): number => Math.min(Math.max(value, min), max)
 
 export default function App() {
+  const [queryInput, setQueryInput] = useState('')
   const [query, setQuery] = useState('')
   const [activeSet, setActiveSet] = useState<string | undefined>()
   const [searchIndex, setSearchIndex] = useState<SearchRecord[]>([])
@@ -59,6 +67,20 @@ export default function App() {
   const [selectedCp, setSelectedCp] = useState<number | null>(null)
   const [copiedLabel, setCopiedLabel] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [announceMessage, setAnnounceMessage] = useState('')
+  const [gridHeight, setGridHeight] = useState(720)
+  const [gridWidth, setGridWidth] = useState(900)
+  const [gridScrollTop, setGridScrollTop] = useState(0)
+  const gridRef = useRef<HTMLDivElement | null>(null)
+  const hasQuery = query.length > 0
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setQuery(queryInput)
+    }, 500)
+
+    return () => window.clearTimeout(timeout)
+  }, [queryInput])
 
   useEffect(() => {
     let isCancelled = false
@@ -90,6 +112,7 @@ export default function App() {
     () => searchCharacters(searchIndex, query, activeSet),
     [activeSet, query, searchIndex],
   )
+  const isReady = searchIndex.length > 0
 
   useEffect(() => {
     if (results.length === 0) {
@@ -104,7 +127,7 @@ export default function App() {
   }, [results, selectedCp])
 
   const selectedSearchRecord = useMemo(() => {
-    if (query.trim() && results.length === 0) {
+    if (hasQuery && results.length === 0) {
       return null
     }
 
@@ -139,7 +162,7 @@ export default function App() {
     [blockIndex, selectedSearchRecord],
   )
 
-  const requestedBlock = selectedBlock ?? (query.trim() ? directLookupBlock : undefined)
+  const requestedBlock = selectedBlock ?? (hasQuery ? directLookupBlock : undefined)
 
   useEffect(() => {
     if (!requestedBlock || loadedBlocks[requestedBlock.id]) {
@@ -177,9 +200,55 @@ export default function App() {
       return
     }
 
+    setAnnounceMessage(`${copiedLabel} copied`)
     const timeout = window.setTimeout(() => setCopiedLabel(null), 1600)
     return () => window.clearTimeout(timeout)
   }, [copiedLabel])
+
+  useEffect(() => {
+    if (!announceMessage) {
+      return
+    }
+
+    const timeout = window.setTimeout(() => setAnnounceMessage(''), 1800)
+    return () => window.clearTimeout(timeout)
+  }, [announceMessage])
+
+  useEffect(() => {
+    const updateGridMetrics = (): void => {
+      const element = gridRef.current
+
+      if (!element) {
+        return
+      }
+
+      setGridHeight(Math.max(320, Math.round(element.clientHeight)))
+      setGridWidth(Math.max(220, Math.round(element.clientWidth)))
+    }
+
+    updateGridMetrics()
+
+    const element = gridRef.current
+
+    if (!element || typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateGridMetrics)
+
+      return () => window.removeEventListener('resize', updateGridMetrics)
+    }
+
+    const observer = new ResizeObserver(() => updateGridMetrics())
+    observer.observe(element)
+
+    return () => observer.disconnect()
+  }, [isReady, query, activeSet])
+
+  useEffect(() => {
+    setGridScrollTop(0)
+
+    if (gridRef.current) {
+      gridRef.current.scrollTop = 0
+    }
+  }, [activeSet, query])
 
   const selectedDetailRecord = useMemo(() => {
     if (selectedSearchRecord && !selectedBlock) {
@@ -209,26 +278,95 @@ export default function App() {
     return blockRecords.find((record) => record.cp === directLookupCp) ?? null
   }, [directLookupBlock, directLookupCp, loadedBlocks, selectedBlock, selectedSearchRecord])
 
-  const resultList = results.slice(0, 240)
-  const directLookupResult =
-    query.trim() && resultList.length === 0 && selectedDetailRecord ? [selectedDetailRecord] : []
-  const displayResults = resultList.length > 0 ? resultList : directLookupResult
+  const directLookupResult = hasQuery && results.length === 0 && selectedDetailRecord ? [selectedDetailRecord] : []
+  const displayResults = results.length > 0 ? results : directLookupResult
   const activeSetLabel = activeSet
     ? featuredSets.find((set) => set.id === activeSet)?.label ?? 'Featured set'
     : 'All sets'
   const totalMatchesLabel = results.length.toLocaleString()
-  const isReady = searchIndex.length > 0
   const copyFormats = selectedDetailRecord ? getCopyFormats(selectedDetailRecord) : []
-  const isDirectLookupOnly = query.trim().length > 0 && resultList.length === 0 && directLookupResult.length > 0
+  const isDirectLookupOnly = hasQuery && results.length === 0 && directLookupResult.length > 0
   const isDirectLookupLoading =
-    query.trim().length > 0 &&
-    resultList.length === 0 &&
+    hasQuery &&
+    results.length === 0 &&
     directLookupCp !== null &&
     directLookupBlock !== undefined &&
     directLookupResult.length === 0
+  const resultCardMinWidth = gridWidth <= 640 ? RESULT_CARD_MIN_WIDTH_NARROW : RESULT_CARD_MIN_WIDTH
+  const virtualColumnCount = useMemo(() => {
+    return Math.max(1, Math.floor((gridWidth + RESULT_GRID_GAP) / (resultCardMinWidth + RESULT_GRID_GAP)))
+  }, [gridWidth, resultCardMinWidth])
+  const totalRows = Math.ceil(displayResults.length / virtualColumnCount)
+  const visibleRowCount = Math.max(1, Math.ceil(gridHeight / RESULT_ROW_HEIGHT))
+  const startRow = clamp(
+    Math.floor(gridScrollTop / RESULT_ROW_HEIGHT) - VIRTUAL_OVERSCAN_ROWS,
+    0,
+    Math.max(0, totalRows - 1),
+  )
+  const endRow = clamp(
+    startRow + visibleRowCount + VIRTUAL_OVERSCAN_ROWS * 2,
+    0,
+    totalRows,
+  )
+  const visibleResults =
+    displayResults.length > 80
+      ? displayResults.slice(startRow * virtualColumnCount, endRow * virtualColumnCount)
+      : displayResults
+  const topSpacerHeight = displayResults.length > 80 ? startRow * RESULT_ROW_HEIGHT : 0
+  const bottomSpacerHeight =
+    displayResults.length > 80 ? Math.max(0, (totalRows - endRow) * RESULT_ROW_HEIGHT) : 0
+
+  const focusResultElement = (cp: number): void => {
+    window.requestAnimationFrame(() => {
+      const element = document.getElementById(`result-${cp}`)
+
+      if (element instanceof HTMLButtonElement) {
+        element.focus()
+      }
+    })
+  }
+
+  const selectResult = (cp: number, shouldFocus = false): void => {
+    setSelectedCp(cp)
+
+    if (shouldFocus) {
+      focusResultElement(cp)
+    }
+  }
+
+  const focusResultByOffset = (offset: number): void => {
+    if (displayResults.length === 0) {
+      return
+    }
+
+    const currentIndex = displayResults.findIndex((record) => record.cp === selectedDetailRecord?.cp)
+    const nextIndex = currentIndex === -1 ? 0 : clamp(currentIndex + offset, 0, displayResults.length - 1)
+    const nextRecord = displayResults[nextIndex]
+
+    if (!nextRecord) {
+      return
+    }
+
+    selectResult(nextRecord.cp, true)
+
+    if (displayResults.length > 80 && gridRef.current) {
+      const nextRow = Math.floor(nextIndex / virtualColumnCount)
+      const rowTop = nextRow * RESULT_ROW_HEIGHT
+      const rowBottom = rowTop + RESULT_ROW_HEIGHT
+
+      if (rowTop < gridRef.current.scrollTop) {
+        gridRef.current.scrollTop = rowTop
+      } else if (rowBottom > gridRef.current.scrollTop + gridHeight) {
+        gridRef.current.scrollTop = rowBottom - gridHeight
+      }
+    }
+  }
 
   return (
     <div className="app-shell">
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {announceMessage}
+      </div>
       <header className="hero">
         <div>
           <p className="eyebrow">Unicode {UNICODE_VERSION}</p>
@@ -241,7 +379,6 @@ export default function App() {
         <div className="hero-metrics" aria-label="Project goals">
           <span>{searchIndex.length.toLocaleString()} indexed characters</span>
           <span>{blockIndex.length.toLocaleString()} block files</span>
-          <span>Static hosting</span>
         </div>
       </header>
 
@@ -250,16 +387,30 @@ export default function App() {
           <span className="sr-only">Search characters</span>
           <input
             type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            value={queryInput}
+            onChange={(event) => setQueryInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowDown') {
+                const first = displayResults[0]
+
+                if (!first) {
+                  return
+                }
+
+                event.preventDefault()
+                selectResult(first.cp, true)
+              }
+            }}
             placeholder="Search by character, U+00A0, alias, block, script, or keyword"
             disabled={!isReady}
+            aria-describedby="search-status"
           />
         </label>
         <button
           type="button"
           className="ghost-button"
           onClick={() => {
+            setQueryInput('')
             setQuery('')
             setActiveSet(undefined)
           }}
@@ -327,12 +478,15 @@ export default function App() {
               <p>
                 {isReady ? `${totalMatchesLabel} matching characters.` : 'Loading generated search index.'}
               </p>
+              <p id="search-status" className="search-status">
+                {queryInput === query ? 'Search results are current.' : 'Waiting for typing to pause.'}
+              </p>
             </div>
             <div className="inline-badges">
               <span>{activeSetLabel}</span>
-              <span>{query.trim() ? 'Filtered' : 'Browse mode'}</span>
+              <span>{hasQuery ? 'Filtered' : 'Browse mode'}</span>
               {isDirectLookupOnly ? <span>Exact code point lookup</span> : null}
-              {results.length > resultList.length ? <span>Showing first {resultList.length}</span> : null}
+              {displayResults.length > 80 ? <span>Virtualized</span> : null}
             </div>
           </div>
 
@@ -352,26 +506,80 @@ export default function App() {
               <p>Try a direct character, a `U+` lookup, an alias like `nbsp`, or a block name.</p>
             </div>
           ) : (
-            <div className="results-grid" role="list" aria-label="Character results">
-              {displayResults.map((record) => {
-                const isSelected = selectedDetailRecord?.cp === record.cp
+            <div
+              ref={gridRef}
+              className="results-scroller"
+              onScroll={(event) => setGridScrollTop(event.currentTarget.scrollTop)}
+            >
+              {topSpacerHeight > 0 ? <div style={{ height: `${topSpacerHeight}px` }} aria-hidden="true" /> : null}
+              <div
+                className="results-grid"
+                style={{ gridTemplateColumns: `repeat(${virtualColumnCount}, minmax(0, 1fr))` }}
+                role="listbox"
+                aria-label="Character results"
+                aria-activedescendant={selectedDetailRecord ? `result-${selectedDetailRecord.cp}` : undefined}
+              >
+                {visibleResults.map((record) => {
+                  const isSelected = selectedDetailRecord?.cp === record.cp
 
-                return (
-                  <button
-                    key={record.cp}
-                    type="button"
-                    role="listitem"
-                    className={isSelected ? 'result-card is-selected' : 'result-card'}
-                    onClick={() => setSelectedCp(record.cp)}
-                  >
-                    <span className={`glyph-tile kind-${record.kind}`}>{getPrimaryGlyph(record)}</span>
-                    <span className="result-meta">
-                      <strong>{record.aliases?.[0] ?? record.name}</strong>
-                      <span>{formatCodePointDisplay(record.cp)}</span>
-                    </span>
-                  </button>
-                )
-              })}
+                  return (
+                    <button
+                      id={`result-${record.cp}`}
+                      key={record.cp}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      tabIndex={isSelected ? 0 : -1}
+                      className={isSelected ? 'result-card is-selected' : 'result-card'}
+                      onClick={() => selectResult(record.cp)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'ArrowRight') {
+                          event.preventDefault()
+                          focusResultByOffset(1)
+                        }
+
+                        if (event.key === 'ArrowLeft') {
+                          event.preventDefault()
+                          focusResultByOffset(-1)
+                        }
+
+                        if (event.key === 'ArrowDown') {
+                          event.preventDefault()
+                          focusResultByOffset(virtualColumnCount)
+                        }
+
+                        if (event.key === 'ArrowUp') {
+                          event.preventDefault()
+                          focusResultByOffset(-virtualColumnCount)
+                        }
+
+                        if (event.key === 'Home') {
+                          event.preventDefault()
+                          const first = displayResults[0]
+                          if (first) {
+                            selectResult(first.cp, true)
+                          }
+                        }
+
+                        if (event.key === 'End') {
+                          event.preventDefault()
+                          const last = displayResults.at(-1)
+                          if (last) {
+                            selectResult(last.cp, true)
+                          }
+                        }
+                      }}
+                    >
+                      <span className={`glyph-tile kind-${record.kind}`}>{getPrimaryGlyph(record)}</span>
+                      <span className="result-meta">
+                        <strong>{record.aliases?.[0] ?? record.name}</strong>
+                        <span>{formatCodePointDisplay(record.cp)}</span>
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+              {bottomSpacerHeight > 0 ? <div style={{ height: `${bottomSpacerHeight}px` }} aria-hidden="true" /> : null}
             </div>
           )}
         </section>
@@ -455,6 +663,7 @@ export default function App() {
                       key={entry.id}
                       type="button"
                       className="copy-card"
+                      aria-label={`Copy ${entry.label} for ${selectedDetailRecord.name}`}
                       onClick={async () => {
                         await copyText(entry.value)
                         setCopiedLabel(entry.label)

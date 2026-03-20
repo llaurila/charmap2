@@ -10,27 +10,29 @@ type RankedMatch<T extends SearchableRecord> = {
   score: number
 }
 
-const isFuzzySubsequenceMatch = (query: string, target: string): boolean => {
+const fuzzySubsequenceScore = (query: string, target: string): number | null => {
   const compactQuery = query.replace(/\s+/g, '')
   const compactTarget = target.replace(/\s+/g, '')
 
   if (compactQuery.length < 3 || compactQuery.length > compactTarget.length) {
-    return false
+    return null
   }
 
   let targetIndex = 0
+  let totalGap = 0
 
   for (const character of compactQuery) {
-    targetIndex = compactTarget.indexOf(character, targetIndex)
+    const nextIndex = compactTarget.indexOf(character, targetIndex)
 
-    if (targetIndex === -1) {
-      return false
+    if (nextIndex === -1) {
+      return null
     }
 
-    targetIndex += 1
+    totalGap += nextIndex - targetIndex
+    targetIndex = nextIndex + 1
   }
 
-  return true
+  return Math.max(1, 48 - (compactTarget.length - compactQuery.length) - totalGap)
 }
 
 export const normalizeSearchTerm = (value: string): string =>
@@ -88,11 +90,18 @@ const rankRecord = <T extends SearchableRecord>(record: T, query: string): numbe
   const codePoint = parseCodePointQuery(query)
   const pastedCharacter = getSingleCodePointQuery(query)
   const normalizedQuery = normalizeSearchTerm(query)
-  const nameTerms = [record.name, ...(record.aliases ?? [])]
-  const metadataTerms = [record.block, record.script, ...(record.keywords ?? [])]
-  const normalizedNameTerms = nameTerms.map(normalizeSearchTerm)
-  const normalizedMetadataTerms = metadataTerms.map(normalizeSearchTerm)
-  const normalizedTerms = [...normalizedNameTerms, ...normalizedMetadataTerms]
+  const normalizedName = normalizeSearchTerm(record.name)
+  const normalizedAliases = (record.aliases ?? []).map(normalizeSearchTerm)
+  const normalizedKeywords = (record.keywords ?? []).map(normalizeSearchTerm)
+  const normalizedBlock = normalizeSearchTerm(record.block)
+  const normalizedScript = normalizeSearchTerm(record.script)
+  const normalizedTerms = [
+    normalizedName,
+    ...normalizedAliases,
+    normalizedBlock,
+    normalizedScript,
+    ...normalizedKeywords,
+  ]
 
   if (!query && pastedCharacter === null) {
     return 0
@@ -106,19 +115,54 @@ const rankRecord = <T extends SearchableRecord>(record: T, query: string): numbe
     return 90
   }
 
-  if (normalizedNameTerms.some((term) => term === normalizedQuery)) {
+  if (normalizedName === normalizedQuery) {
     return 80
   }
 
-  if (normalizedNameTerms.some((term) => term.startsWith(normalizedQuery))) {
+  if (normalizedAliases.includes(normalizedQuery)) {
+    return 79
+  }
+
+  if (normalizedName.startsWith(normalizedQuery)) {
     return 70
   }
 
-  if (normalizedMetadataTerms.some((term) => term === normalizedQuery)) {
+  if (normalizedAliases.some((term) => term.startsWith(normalizedQuery))) {
+    return 69
+  }
+
+  if (normalizedKeywords.includes(normalizedQuery)) {
+    return 68
+  }
+
+  if (normalizedBlock === normalizedQuery) {
+    return 67
+  }
+
+  if (normalizedScript === normalizedQuery) {
+    return 66
+  }
+
+  if (normalizedKeywords.some((term) => term.startsWith(normalizedQuery))) {
     return 65
   }
 
   const queryTokens = normalizedQuery.split(' ').filter(Boolean)
+
+  if (
+    queryTokens.length > 0 &&
+    queryTokens.every((token) => normalizedName.includes(token))
+  ) {
+    return 64 + queryTokens.length
+  }
+
+  if (
+    queryTokens.length > 0 &&
+    normalizedAliases.some((term) => queryTokens.every((token) => term.includes(token)))
+  ) {
+    return 62 + queryTokens.length
+  }
+
   if (
     queryTokens.length > 0 &&
     queryTokens.every((token) => normalizedTerms.some((term) => term.includes(token)))
@@ -126,11 +170,39 @@ const rankRecord = <T extends SearchableRecord>(record: T, query: string): numbe
     return 60
   }
 
-  if (normalizedTerms.some((term) => isFuzzySubsequenceMatch(normalizedQuery, term))) {
-    return 50
+  return null
+}
+
+const rankFuzzyRecord = <T extends SearchableRecord>(record: T, query: string): number | null => {
+  const normalizedQuery = normalizeSearchTerm(query)
+
+  if (!normalizedQuery) {
+    return null
   }
 
-  return null
+  const candidateTerms = [
+    normalizeSearchTerm(record.name),
+    ...((record.aliases ?? []).map(normalizeSearchTerm)),
+    normalizeSearchTerm(record.block),
+    normalizeSearchTerm(record.script),
+    ...((record.keywords ?? []).map(normalizeSearchTerm)),
+  ]
+
+  let bestScore: number | null = null
+
+  for (const term of candidateTerms) {
+    const score = fuzzySubsequenceScore(normalizedQuery, term)
+
+    if (score === null) {
+      continue
+    }
+
+    if (bestScore === null || score > bestScore) {
+      bestScore = score
+    }
+  }
+
+  return bestScore
 }
 
 export const searchCharacters = <T extends SearchableRecord>(
@@ -160,5 +232,22 @@ export const searchCharacters = <T extends SearchableRecord>(
       return left.record.cp - right.record.cp
     })
 
-  return ranked.map((entry) => entry.record)
+  if (ranked.length > 0) {
+    return ranked.map((entry) => entry.record)
+  }
+
+  return scopedRecords
+    .map((record) => ({
+      record,
+      score: rankFuzzyRecord(record, query) ?? -1,
+    }))
+    .filter((entry) => entry.score >= 0)
+    .sort((left, right) => {
+      if (right.score !== left.score) {
+        return right.score - left.score
+      }
+
+      return left.record.cp - right.record.cp
+    })
+    .map((entry) => entry.record)
 }
