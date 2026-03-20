@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "types": ["node"]
+  },
+  "include": [
+    "vite.config.ts",
+    "scripts/**/*.ts",
+    "src/constants/unicode.ts",
+    "src/data/descriptionOverrides.ts",
+    "src/data/featuredSets.ts",
+    "src/data/searchKeywords.ts",
+    "src/types/unicode.ts"
+  ]
+}

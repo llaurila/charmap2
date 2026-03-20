@@ -1,0 +1,17 @@
+export const searchKeywordOverrides = {
+    0x0009: ['tab', 'character tabulation'],
+    0x000a: ['line feed', 'newline'],
+    0x000d: ['carriage return'],
+    0x00a0: ['nbsp', 'no break space', 'non breaking space'],
+    0x200b: ['zwsp', 'zero width', 'word break'],
+    0x200c: ['zwnj', 'zero width non joiner', 'non joiner'],
+    0x200d: ['zwj', 'zero width joiner', 'joiner'],
+    0x2013: ['ndash', 'en dash'],
+    0x2014: ['mdash', 'em dash'],
+    0x2018: ['left single quote', 'curly apostrophe'],
+    0x2019: ['right single quote', 'apostrophe'],
+    0x201c: ['left double quote', 'curly quote'],
+    0x201d: ['right double quote', 'curly quote'],
+    0x2212: ['math minus', 'minus'],
+    0xfeff: ['bom', 'byte order mark', 'zero width no break space'],
+};
