@@ -24,3 +24,4 @@ First public release.
 
 - The current MVP focuses on single Unicode code points, including single-code-point emoji.
 - Multi-code-point emoji sequences, named sequences, favorites, recent characters, and deeper CJK enrichment remain future work.
+- The project is configured for deployment on GitHub Pages at `https://llaurila.github.io/charmap2/`.

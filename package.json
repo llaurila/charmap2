@@ -5,7 +5,7 @@
   "description": "A static Unicode character map for searching, inspecting, and copying Unicode characters.",
   "license": "MIT",
   "type": "module",
-  "homepage": "https://github.com/llaurila/charmap2#readme",
+  "homepage": "https://llaurila.github.io/charmap2/",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/llaurila/charmap2.git"
