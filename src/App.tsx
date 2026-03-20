@@ -1,42 +1,31 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef } from 'react'
 import { DetailPanel } from './components/DetailPanel'
 import { FeaturedSetsPanel } from './components/FeaturedSetsPanel'
 import { InstallPanel } from './components/InstallPanel'
 import { ResultsPanel } from './components/ResultsPanel'
 import { UNICODE_VERSION } from './constants/unicode'
-import { featuredSets } from './data/featuredSets'
-import { findBlockForCodePoint } from './data/unicode'
-import { useCopyFeedback } from './hooks/useCopyFeedback'
-import { useDebouncedValue } from './hooks/useDebouncedValue'
+import { useCharacterSearchResults } from './hooks/useCharacterSearchResults'
+import { useDetailCopyFormats } from './hooks/useDetailCopyFormats'
+import { useInstallPrompt } from './hooks/useInstallPrompt'
+import { useResultNavigation } from './hooks/useResultNavigation'
 import { useResultsGrid } from './hooks/useResultsGrid'
+import { useSearchControls } from './hooks/useSearchControls'
 import { useUnicodeData } from './hooks/useUnicodeData'
-import { getCopyFormats } from './utils/copyFormats'
-import {
-  getSelectedDetailRecord,
-  getSelectedSearchRecord,
-  getVirtualizationState,
-  moveSelection,
-  RESULT_ROW_HEIGHT,
-} from './utils/resultState'
-import { getInstallSurface, isInstalledDisplayMode } from './utils/install'
-import { getSingleCodePointQuery, searchCharacters } from './utils/search'
+import { getVirtualizationState } from './utils/resultState'
+import { getActiveSetText, getResultsStatusText } from './utils/resultsViewModel'
 
-// eslint-disable-next-line complexity
 export default function App() {
-  const [queryInput, setQueryInput] = useState('')
-  const [activeSet, setActiveSet] = useState<string | undefined>()
-  const [deferredInstallPrompt, setDeferredInstallPrompt] =
-    useState<BeforeInstallPromptEvent | null>(null)
-  const [isInstalled, setIsInstalled] = useState(() =>
-    isInstalledDisplayMode({
-      standalone: window.matchMedia('(display-mode: standalone)').matches,
-      minimalUi: window.matchMedia('(display-mode: minimal-ui)').matches,
-      navigatorStandalone: navigator.standalone,
-    }),
-  )
   const gridRef = useRef<HTMLDivElement | null>(null)
-  const query = useDebouncedValue(queryInput, 500)
-  const hasQuery = query.length > 0
+  const {
+    activeSet,
+    hasQuery,
+    query,
+    queryInput,
+    resetSearch,
+    searchStatusText,
+    setActiveSet,
+    setQueryInput,
+  } = useSearchControls()
   const {
     blockIndex,
     isReady,
@@ -47,208 +36,49 @@ export default function App() {
     selectedCp,
     setSelectedCp,
   } = useUnicodeData()
-  const { announceMessage, copiedLabel, copyValue } = useCopyFeedback()
+  const { deferredInstallPrompt, handleInstallClick, installSurface, shouldShowInstallPanel } =
+    useInstallPrompt()
+  const {
+    directLookupCp,
+    displayResults,
+    isDirectLookupLoading,
+    isDirectLookupOnly,
+    results,
+    selectedDetailRecord,
+  } = useCharacterSearchResults({
+      activeSet,
+      blockIndex,
+      hasQuery,
+      loadedBlocks,
+      loadBlock,
+      query,
+      searchIndex,
+      selectedCp,
+      setSelectedCp,
+    })
   const { gridHeight, gridScrollTop, gridWidth, setGridScrollTop } = useResultsGrid({
     activeSet,
     gridRef,
     isReady,
     query,
   })
-
-  const results = useMemo(
-    () => searchCharacters(searchIndex, query, activeSet),
-    [activeSet, query, searchIndex],
-  )
-
-  useEffect(() => {
-    if (results.length === 0) {
-      return
-    }
-
-    const currentSelectionExists =
-      selectedCp !== null && results.some((record) => record.cp === selectedCp)
-
-    if (!currentSelectionExists) {
-      setSelectedCp(results[0]?.cp ?? null)
-    }
-  }, [results, selectedCp, setSelectedCp])
-
-  const selectedSearchRecord = useMemo(
-    () => getSelectedSearchRecord(results, searchIndex, selectedCp, hasQuery),
-    [hasQuery, results, searchIndex, selectedCp],
-  )
-  const directLookupCp = useMemo(() => getSingleCodePointQuery(query), [query])
-  const directLookupBlock = useMemo(
-    () => (directLookupCp !== null ? findBlockForCodePoint(blockIndex, directLookupCp) : undefined),
-    [blockIndex, directLookupCp],
-  )
-  const selectedBlock = useMemo(
-    () =>
-      selectedSearchRecord
-        ? findBlockForCodePoint(blockIndex, selectedSearchRecord.cp)
-        : undefined,
-    [blockIndex, selectedSearchRecord],
-  )
-  const effectiveRequestedBlock = selectedBlock ?? (hasQuery ? directLookupBlock : undefined)
-
-  useEffect(() => {
-    loadBlock(effectiveRequestedBlock)
-  }, [effectiveRequestedBlock, loadBlock])
-
-  const selectedDetailRecord = useMemo(
-    () =>
-      getSelectedDetailRecord(
-        loadedBlocks,
-        selectedSearchRecord,
-        selectedBlock,
-        directLookupCp,
-        directLookupBlock,
-      ),
-    [directLookupBlock, directLookupCp, loadedBlocks, selectedBlock, selectedSearchRecord],
-  )
-  const displayResults = useMemo(() => {
-    if (results.length > 0) {
-      return results
-    }
-
-    if (hasQuery && selectedDetailRecord) {
-      return [selectedDetailRecord]
-    }
-
-    return []
-  }, [hasQuery, results, selectedDetailRecord])
-  const isDirectLookupOnly = hasQuery && results.length === 0 && displayResults.length > 0
-  const isDirectLookupLoading =
-    hasQuery &&
-    results.length === 0 &&
-    directLookupCp !== null &&
-    directLookupBlock !== undefined &&
-    displayResults.length === 0
   const { bottomSpacerHeight, topSpacerHeight, virtualColumnCount, visibleResults } = useMemo(
     () => getVirtualizationState(displayResults, gridHeight, gridWidth, gridScrollTop),
     [displayResults, gridHeight, gridScrollTop, gridWidth],
   )
-  const copyFormats = selectedDetailRecord ? getCopyFormats(selectedDetailRecord) : []
   const selectedDetailCp = selectedDetailRecord?.cp ?? null
-  const installSurface = useMemo(
-    () =>
-      getInstallSurface({
-        maxTouchPoints: navigator.maxTouchPoints,
-        platform: navigator.platform,
-        userAgent: navigator.userAgent,
-        vendor: navigator.vendor,
-      }),
-    [],
-  )
-  const resultsStatusText = isReady
-    ? `${results.length.toLocaleString()} matching characters.`
-    : 'Loading generated search index.'
-  const searchStatusText =
-    queryInput === query ? 'Search results are current.' : 'Waiting for typing to pause.'
-  const activeSetText = activeSet
-    ? featuredSets.find((set) => set.id === activeSet)?.label ?? 'Featured set'
-    : 'All sets'
-
-  const selectResult = useCallback((cp: number, shouldFocus = false): void => {
-    setSelectedCp(cp)
-
-    if (!shouldFocus) {
-      return
-    }
-
-    window.requestAnimationFrame(() => {
-      const element = document.getElementById(`result-${cp}`)
-
-      if (element instanceof HTMLButtonElement) {
-        element.focus()
-      }
-    })
-  }, [setSelectedCp])
-
-  const focusResultByOffset = useCallback((offset: number): void => {
-    const nextRecord = moveSelection(displayResults, selectedDetailCp, offset)
-
-    if (!nextRecord) {
-      return
-    }
-
-    selectResult(nextRecord.cp, true)
-
-    if (displayResults.length > 80 && gridRef.current) {
-      const nextIndex = displayResults.findIndex((record) => record.cp === nextRecord.cp)
-      const nextRow = Math.floor(nextIndex / virtualColumnCount)
-      const rowTop = nextRow * RESULT_ROW_HEIGHT
-      const rowBottom = rowTop + RESULT_ROW_HEIGHT
-
-      if (rowTop < gridRef.current.scrollTop) {
-        gridRef.current.scrollTop = rowTop
-      } else if (rowBottom > gridRef.current.scrollTop + gridHeight) {
-        gridRef.current.scrollTop = rowBottom - gridHeight
-      }
-    }
-  }, [displayResults, gridHeight, gridRef, selectResult, selectedDetailCp, virtualColumnCount])
-
-  const handleCopyFormat = useCallback(
-    async (entry: (typeof copyFormats)[number]): Promise<void> =>
-      copyValue(entry.label, entry.value),
-    [copyValue],
-  )
-
-  useEffect(() => {
-    const standaloneQuery = window.matchMedia('(display-mode: standalone)')
-    const minimalUiQuery = window.matchMedia('(display-mode: minimal-ui)')
-
-    const updateInstalledState = (): void => {
-      setIsInstalled(
-        isInstalledDisplayMode({
-          standalone: standaloneQuery.matches,
-          minimalUi: minimalUiQuery.matches,
-          navigatorStandalone: navigator.standalone,
-        }),
-      )
-    }
-
-    const handleBeforeInstallPrompt = (event: BeforeInstallPromptEvent): void => {
-      event.preventDefault()
-      setDeferredInstallPrompt(event)
-    }
-
-    const handleAppInstalled = (): void => {
-      setIsInstalled(true)
-      setDeferredInstallPrompt(null)
-    }
-
-    updateInstalledState()
-    standaloneQuery.addEventListener('change', updateInstalledState)
-    minimalUiQuery.addEventListener('change', updateInstalledState)
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
-    window.addEventListener('appinstalled', handleAppInstalled)
-
-    return () => {
-      standaloneQuery.removeEventListener('change', updateInstalledState)
-      minimalUiQuery.removeEventListener('change', updateInstalledState)
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
-      window.removeEventListener('appinstalled', handleAppInstalled)
-    }
-  }, [])
-
-  const handleInstallClick = useCallback(async (): Promise<void> => {
-    if (!deferredInstallPrompt) {
-      return
-    }
-
-    const promptEvent = deferredInstallPrompt
-    setDeferredInstallPrompt(null)
-    await promptEvent.prompt()
-    const choice = await promptEvent.userChoice
-
-    if (choice.outcome !== 'accepted') {
-      setDeferredInstallPrompt(promptEvent)
-    }
-  }, [deferredInstallPrompt])
-
-  const shouldShowInstallPanel =
-    !isInstalled && (installSurface !== 'chromium' || deferredInstallPrompt !== null)
+  const resultsStatusText = getResultsStatusText(isReady, results.length)
+  const activeSetText = getActiveSetText(activeSet)
+  const { announceMessage, copiedLabel, copyFormats, handleCopyFormat } =
+    useDetailCopyFormats(selectedDetailRecord)
+  const { focusResultByOffset, selectResult } = useResultNavigation({
+    displayResults,
+    gridHeight,
+    gridRef,
+    selectedCp: selectedDetailCp,
+    setSelectedCp,
+    virtualColumnCount,
+  })
 
   return (
     <div className="app-shell">
@@ -307,10 +137,7 @@ export default function App() {
         <button
           type="button"
           className="ghost-button"
-          onClick={() => {
-            setQueryInput('')
-            setActiveSet(undefined)
-          }}
+          onClick={resetSearch}
           disabled={!isReady}
         >
           Reset
