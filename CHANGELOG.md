@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project currently uses date-based release notes alongside the project version.
 
+## [0.1.1] - 2026-03-20
+
+Small polish release for the initial public build.
+
+### Fixed
+
+- Adjusted the three-panel workspace layout so the results panel fills available horizontal space more reliably.
+- Prevented the detail panel from stretching to the full height of the results column, removing the empty space at the bottom.
+
 ## [0.1.0] - 2026-03-20
 
 First public release.
