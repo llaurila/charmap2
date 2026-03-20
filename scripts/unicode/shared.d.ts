@@ -63,6 +63,6 @@ export declare const sortByCodePoint: <T extends {
 export declare const writeCompactJson: (filePath: string, value: unknown) => Promise<void>;
 export declare const ensureDirectory: (directoryPath: string) => Promise<void>;
 export declare const resetBlockOutputDirectory: () => Promise<void>;
-export declare const readVendoredFile: (fileName: (typeof vendoredSourceFiles)[number] | string) => Promise<string>;
+export declare const readVendoredFile: (fileName: string) => Promise<string>;
 export declare const assertVendoredFilesExist: () => Promise<void>;
 export {};

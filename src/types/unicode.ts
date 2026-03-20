@@ -55,6 +55,9 @@ export type CharacterRecord = {
   featuredIn?: string[]
 }
 
+export type ResultRecord = CharacterRecord | SearchRecord
+export type LoadedBlocks = Record<string, CharacterRecord[]>
+
 export type FeaturedSet = {
   id: string
   label: string

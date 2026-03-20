@@ -51,6 +51,30 @@ const createSearchPayload = (records) => {
         records: encodedRecords,
     };
 };
+const stripSearchOnlyFields = (record) => {
+    if (record.featuredIn ||
+        record.aliases ||
+        record.keywords ||
+        record.description ||
+        record.hidden) {
+        return record;
+    }
+    const { featuredIn, aliases, keywords, description, hidden, ...minimalRecord } = record;
+    void featuredIn;
+    void aliases;
+    void keywords;
+    void description;
+    void hidden;
+    return minimalRecord;
+};
+const writeBlockFiles = async (blockEntries, characterRecords) => {
+    for (const blockEntry of blockEntries) {
+        const blockRecords = characterRecords
+            .filter((record) => record.block === blockEntry.label)
+            .map(stripSearchOnlyFields);
+        await writeCompactJson(path.join(outputDir, blockEntry.file), blockRecords);
+    }
+};
 const run = async () => {
     await assertVendoredFilesExist();
     await ensureDirectory(outputDir);
@@ -73,29 +97,13 @@ const run = async () => {
     }));
     const blockEntries = createBlockEntries(characterRecords);
     const searchPayload = createSearchPayload(characterRecords);
-    for (const blockEntry of blockEntries) {
-        const blockRecords = characterRecords
-            .filter((record) => record.block === blockEntry.label)
-            .map((record) => {
-            if (record.featuredIn || record.aliases || record.keywords || record.description || record.hidden) {
-                return record;
-            }
-            const { featuredIn, aliases, keywords, description, hidden, ...minimalRecord } = record;
-            void featuredIn;
-            void aliases;
-            void keywords;
-            void description;
-            void hidden;
-            return minimalRecord;
-        });
-        await writeCompactJson(path.join(outputDir, blockEntry.file), blockRecords);
-    }
+    await writeBlockFiles(blockEntries, characterRecords);
     await writeCompactJson(path.join(outputDir, 'search-core.json'), searchPayload);
     await writeCompactJson(path.join(outputDir, 'ranges.json'), blockEntries);
-    console.log(`Generated ${characterRecords.length} character records across ${blockEntries.length} block files in ${blockOutputDir}.`);
+    console.log(`Generated ${characterRecords.length} character records ` +
+        `across ${blockEntries.length} block files in ${blockOutputDir}.`);
 };
 run().catch((error) => {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(message);
+    console.error(error instanceof Error ? error.message : 'Unknown error');
     process.exitCode = 1;
 });

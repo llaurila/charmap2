@@ -5,7 +5,12 @@ import { SEARCH_KIND_ORDER, UNICODE_VERSION } from '../../src/constants/unicode'
 import { descriptionOverrides } from '../../src/data/descriptionOverrides'
 import { featuredSetLookup } from '../../src/data/featuredSets'
 import { searchKeywordOverrides } from '../../src/data/searchKeywords'
-import type { CharacterKind, CharacterRecord, EncodedSearchRecord, SearchRecord } from '../../src/types/unicode'
+import type {
+  CharacterKind,
+  CharacterRecord,
+  EncodedSearchRecord,
+  SearchRecord,
+} from '../../src/types/unicode'
 
 export type AliasEntry = {
   value: string
@@ -100,7 +105,8 @@ const propertyLabelMap: Record<string, string> = {
 
 const controlAliasPriority = ['control', 'alternate', 'figment', 'abbreviation']
 
-export const formatCodePoint = (cp: number): string => cp.toString(16).toUpperCase().padStart(4, '0')
+export const formatCodePoint = (cp: number): string =>
+  cp.toString(16).toUpperCase().padStart(4, '0')
 
 export const slugify = (value: string): string =>
   value
@@ -178,17 +184,45 @@ export const findRangeValue = (
   return fallback
 }
 
+const getContentLine = (rawLine: string): string => rawLine.split('#', 1)[0]?.trim() ?? ''
+
+const parseTrimmedFields = (line: string): string[] => line.split(';').map((part) => part.trim())
+
+const addPropertyRange = (
+  propertyLookup: Map<number, Set<string>>,
+  rangeText: string,
+  propertyLabel: string,
+): void => {
+  const { start, end } = parseCodePointRange(rangeText)
+
+  for (let cp = start; cp <= end; cp += 1) {
+    const existing = propertyLookup.get(cp) ?? new Set<string>()
+    existing.add(propertyLabel)
+    propertyLookup.set(cp, existing)
+  }
+}
+
+const sortPropertyLookup = (
+  propertyLookup: Map<number, Set<string>>,
+): Map<number, string[]> =>
+  new Map(
+    Array.from(propertyLookup.entries(), ([cp, values]) => [
+      cp,
+      Array.from(values.values()).sort(),
+    ]),
+  )
+
 export const parseNameAliases = (source: string): Map<number, AliasEntry[]> => {
   const aliases = new Map<number, AliasEntry[]>()
 
   for (const rawLine of source.split(/\r?\n/u)) {
-    const line = rawLine.split('#', 1)[0]?.trim() ?? ''
+    const line = getContentLine(rawLine)
 
     if (!line) {
       continue
     }
 
-    const [cpText, aliasValue, aliasType] = line.split(';').map((part) => part.trim())
+    const [cpText, aliasValue, aliasType] = parseTrimmedFields(line)
 
     if (!cpText || !aliasValue || !aliasType) {
       throw new Error(`Invalid alias line: ${rawLine}`)
@@ -207,31 +241,23 @@ export const parseSelectedProperties = (source: string): Map<number, string[]> =
   const propertyLookup = new Map<number, Set<string>>()
 
   for (const rawLine of source.split(/\r?\n/u)) {
-    const line = rawLine.split('#', 1)[0]?.trim() ?? ''
+    const line = getContentLine(rawLine)
 
     if (!line) {
       continue
     }
 
-    const [rangeText, propertyName] = line.split(';').map((part) => part.trim())
+    const [rangeText, propertyName] = parseTrimmedFields(line)
     const propertyLabel = propertyName ? propertyLabelMap[propertyName] : undefined
 
     if (!rangeText || !propertyLabel) {
       continue
     }
 
-    const { start, end } = parseCodePointRange(rangeText)
-
-    for (let cp = start; cp <= end; cp += 1) {
-      const existing = propertyLookup.get(cp) ?? new Set<string>()
-      existing.add(propertyLabel)
-      propertyLookup.set(cp, existing)
-    }
+    addPropertyRange(propertyLookup, rangeText, propertyLabel)
   }
 
-  return new Map(
-    Array.from(propertyLookup.entries(), ([cp, values]) => [cp, Array.from(values.values()).sort()]),
-  )
+  return sortPropertyLookup(propertyLookup)
 }
 
 export const getHangulSyllableName = (cp: number): string => {
@@ -246,9 +272,80 @@ export const getHangulSyllableName = (cp: number): string => {
     throw new Error(`Code point U+${formatCodePoint(cp)} is not a Hangul syllable.`)
   }
 
-  const leading = ['G', 'GG', 'N', 'D', 'DD', 'R', 'M', 'B', 'BB', 'S', 'SS', 'NG', 'J', 'JJ', 'C', 'K', 'T', 'P', 'H']
-  const vowel = ['A', 'AE', 'YA', 'YAE', 'EO', 'E', 'YEO', 'YE', 'O', 'WA', 'WAE', 'OE', 'YO', 'U', 'WEO', 'WE', 'WI', 'YU', 'EU', 'YI', 'I']
-  const trailing = ['', 'G', 'GG', 'GS', 'N', 'NJ', 'NH', 'D', 'L', 'LG', 'LM', 'LB', 'LS', 'LT', 'LP', 'LH', 'M', 'B', 'BS', 'S', 'SS', 'NG', 'J', 'C', 'K', 'T', 'P', 'H']
+  const leading = [
+    'G',
+    'GG',
+    'N',
+    'D',
+    'DD',
+    'R',
+    'M',
+    'B',
+    'BB',
+    'S',
+    'SS',
+    'NG',
+    'J',
+    'JJ',
+    'C',
+    'K',
+    'T',
+    'P',
+    'H',
+  ]
+  const vowel = [
+    'A',
+    'AE',
+    'YA',
+    'YAE',
+    'EO',
+    'E',
+    'YEO',
+    'YE',
+    'O',
+    'WA',
+    'WAE',
+    'OE',
+    'YO',
+    'U',
+    'WEO',
+    'WE',
+    'WI',
+    'YU',
+    'EU',
+    'YI',
+    'I',
+  ]
+  const trailing = [
+    '',
+    'G',
+    'GG',
+    'GS',
+    'N',
+    'NJ',
+    'NH',
+    'D',
+    'L',
+    'LG',
+    'LM',
+    'LB',
+    'LS',
+    'LT',
+    'LP',
+    'LH',
+    'M',
+    'B',
+    'BS',
+    'S',
+    'SS',
+    'NG',
+    'J',
+    'C',
+    'K',
+    'T',
+    'P',
+    'H',
+  ]
 
   const leadingIndex = Math.floor(syllableIndex / nCount)
   const vowelIndex = Math.floor((syllableIndex % nCount) / tCount)
@@ -262,34 +359,36 @@ export const synthesizeRangeName = (label: string, cp: number): string => {
     return getHangulSyllableName(cp)
   }
 
-  if (label.startsWith('CJK Ideograph') || label.startsWith('CJK Unified Ideograph')) {
-    return `CJK UNIFIED IDEOGRAPH-${formatCodePoint(cp)}`
+  const prefixedName = [
+    ['CJK Ideograph', 'CJK UNIFIED IDEOGRAPH'],
+    ['CJK Unified Ideograph', 'CJK UNIFIED IDEOGRAPH'],
+    ['Tangut Ideograph', 'TANGUT IDEOGRAPH'],
+  ].find(([prefix]) => label.startsWith(prefix))
+
+  if (prefixedName) {
+    return `${prefixedName[1]}-${formatCodePoint(cp)}`
   }
 
-  if (label.startsWith('Tangut Ideograph')) {
-    return `TANGUT IDEOGRAPH-${formatCodePoint(cp)}`
+  const exactName = new Map<string, string>([
+    ['Nushu Character', 'NUSHU CHARACTER'],
+    ['Khitan Small Script Character', 'KHITAN SMALL SCRIPT CHARACTER'],
+  ]).get(label)
+
+  if (exactName) {
+    return `${exactName}-${formatCodePoint(cp)}`
   }
 
-  if (label === 'Nushu Character') {
-    return `NUSHU CHARACTER-${formatCodePoint(cp)}`
-  }
+  const containedName = [
+    ['Private Use', 'Private Use'],
+    ['Noncharacter', 'Noncharacter'],
+  ].find(([value]) => label.includes(value))
 
-  if (label === 'Khitan Small Script Character') {
-    return `KHITAN SMALL SCRIPT CHARACTER-${formatCodePoint(cp)}`
+  if (containedName) {
+    return containedName[1]
   }
 
   if (label.includes('Surrogate')) {
-    return label
-      .replace(/\s+/gu, ' ')
-      .replace(/^\w/u, (match) => match.toUpperCase())
-  }
-
-  if (label.includes('Private Use')) {
-    return 'Private Use'
-  }
-
-  if (label.includes('Noncharacter')) {
-    return 'Noncharacter'
+    return label.replace(/\s+/gu, ' ').replace(/^\w/u, (match) => match.toUpperCase())
   }
 
   throw new Error(`Unhandled range naming rule for '${label}'.`)
@@ -313,7 +412,11 @@ const parseDecomposition = (value: string): number[] | undefined => {
   return parts.map((part) => Number.parseInt(part, 16))
 }
 
-const parseCaseMap = (upper: string, lower: string, title: string): ParsedUnicodeRecord['caseMap'] => {
+const parseCaseMap = (
+  upper: string,
+  lower: string,
+  title: string,
+): ParsedUnicodeRecord['caseMap'] => {
   const upperValue = upper ? Number.parseInt(upper, 16) : undefined
   const lowerValue = lower ? Number.parseInt(lower, 16) : undefined
   const titleValue = title ? Number.parseInt(title, 16) : undefined
@@ -349,85 +452,164 @@ const normalizePlaceholderName = (value: string, cp: number): string => {
   return value.slice(1, -1)
 }
 
-export const parseUnicodeData = (source: string): ParsedUnicodeRecord[] => {
-  const records: ParsedUnicodeRecord[] = []
-  let pendingRange:
-    | {
-        start: number
-        label: string
-        fields: string[]
-      }
-    | undefined
+type PendingRange = {
+  start: number
+  label: string
+  fields: string[]
+}
 
-  for (const rawLine of source.split(/\r?\n/u)) {
-    const line = rawLine.trim()
+const unicodeRangeFirstPattern = /^<(.+), First>$/u
+const unicodeRangeLastPattern = /^<(.+), Last>$/u
 
-    if (!line) {
-      continue
-    }
+const createRangeRecord = (
+  cp: number,
+  name: string,
+  fields: string[],
+): ParsedUnicodeRecord => ({
+  cp,
+  name,
+  category: fields[2] ?? 'Cn',
+  decomposition: parseDecomposition(fields[5] ?? ''),
+  caseMap: parseCaseMap(fields[12] ?? '', fields[13] ?? '', fields[14] ?? ''),
+  legacyName: fields[10] || undefined,
+  isoComment: fields[11] || undefined,
+})
 
-    const fields = line.split(';')
-    const cp = Number.parseInt(fields[0] ?? '', 16)
-    const rawName = fields[1] ?? ''
-    const rangeStartMatch = rawName.match(/^<(.+), First>$/u)
-    const rangeEndMatch = rawName.match(/^<(.+), Last>$/u)
+const expandPendingRange = (
+  records: ParsedUnicodeRecord[],
+  pendingRange: PendingRange,
+  rangeEnd: number,
+): void => {
+  for (let currentCp = pendingRange.start; currentCp <= rangeEnd; currentCp += 1) {
+    records.push(
+      createRangeRecord(
+        currentCp,
+        synthesizeRangeName(pendingRange.label, currentCp),
+        pendingRange.fields,
+      ),
+    )
+  }
+}
 
-    if (rangeStartMatch) {
-      pendingRange = {
-        start: cp,
-        label: rangeStartMatch[1],
-        fields,
-      }
-      continue
-    }
+const getPendingRangeLabel = (
+  rawName: string,
+): { firstLabel?: string; lastLabel?: string } => {
+  const firstLabel = unicodeRangeFirstPattern.exec(rawName)?.[1]
 
-    if (rangeEndMatch) {
-      const rangeLabel = rangeEndMatch[1]
-
-      if (!pendingRange || pendingRange.label !== rangeLabel) {
-        throw new Error(`Mismatched UnicodeData range end for '${rangeLabel}'.`)
-      }
-
-      for (let currentCp = pendingRange.start; currentCp <= cp; currentCp += 1) {
-        records.push({
-          cp: currentCp,
-          name: synthesizeRangeName(rangeLabel, currentCp),
-          category: pendingRange.fields[2] ?? 'Cn',
-          decomposition: parseDecomposition(pendingRange.fields[5] ?? ''),
-          caseMap: parseCaseMap(
-            pendingRange.fields[12] ?? '',
-            pendingRange.fields[13] ?? '',
-            pendingRange.fields[14] ?? '',
-          ),
-          legacyName: pendingRange.fields[10] || undefined,
-          isoComment: pendingRange.fields[11] || undefined,
-        })
-      }
-
-      pendingRange = undefined
-      continue
-    }
-
-    records.push({
-      cp,
-      name: rawName.startsWith('<') ? normalizePlaceholderName(rawName, cp) : rawName,
-      category: fields[2] ?? 'Cn',
-      decomposition: parseDecomposition(fields[5] ?? ''),
-      caseMap: parseCaseMap(fields[12] ?? '', fields[13] ?? '', fields[14] ?? ''),
-      legacyName: fields[10] || undefined,
-      isoComment: fields[11] || undefined,
-    })
+  if (firstLabel) {
+    return { firstLabel }
   }
 
+  return {
+    lastLabel: unicodeRangeLastPattern.exec(rawName)?.[1],
+  }
+}
+
+const parseUnicodeDataLine = (
+  records: ParsedUnicodeRecord[],
+  rawLine: string,
+  pendingRange: PendingRange | undefined,
+): PendingRange | undefined => {
+  const line = rawLine.trim()
+
+  if (!line) {
+    return pendingRange
+  }
+
+  return parseUnicodeDataContentLine(records, line, pendingRange)
+}
+
+const getParsedUnicodeDataLine = (line: string) => {
+  const fields = line.split(';')
+  const cp = Number.parseInt(fields[0] ?? '', 16)
+  const rawName = fields[1] ?? ''
+  const { firstLabel, lastLabel } = getPendingRangeLabel(rawName)
+
+  return {
+    cp,
+    fields,
+    firstLabel,
+    lastLabel,
+    rawName,
+  }
+}
+
+const assertMatchingPendingRange = (
+  pendingRange: PendingRange | undefined,
+  lastLabel: string,
+): PendingRange => {
+  if (!pendingRange || pendingRange.label !== lastLabel) {
+    throw new Error(`Mismatched UnicodeData range end for '${lastLabel}'.`)
+  }
+
+  return pendingRange
+}
+
+const appendStandaloneUnicodeRecord = (
+  records: ParsedUnicodeRecord[],
+  cp: number,
+  fields: string[],
+  rawName: string,
+): void => {
+  const name = rawName.startsWith('<') ? normalizePlaceholderName(rawName, cp) : rawName
+  records.push(createRangeRecord(cp, name, fields))
+}
+
+const parseUnicodeDataContentLine = (
+  records: ParsedUnicodeRecord[],
+  line: string,
+  pendingRange: PendingRange | undefined,
+): PendingRange | undefined => {
+  const parsedLine = getParsedUnicodeDataLine(line)
+
+  if (parsedLine.firstLabel) {
+    return {
+      start: parsedLine.cp,
+      label: parsedLine.firstLabel,
+      fields: parsedLine.fields,
+    }
+  }
+
+  if (!parsedLine.lastLabel) {
+    appendStandaloneUnicodeRecord(records, parsedLine.cp, parsedLine.fields, parsedLine.rawName)
+    return pendingRange
+  }
+
+  expandPendingRange(
+    records,
+    assertMatchingPendingRange(pendingRange, parsedLine.lastLabel),
+    parsedLine.cp,
+  )
+  return undefined
+}
+
+const finalizePendingRange = (
+  pendingRange: PendingRange | undefined,
+): PendingRange | undefined => {
   if (pendingRange) {
     throw new Error(`Unterminated UnicodeData range '${pendingRange.label}'.`)
   }
+
+  return undefined
+}
+
+export const parseUnicodeData = (source: string): ParsedUnicodeRecord[] => {
+  const records: ParsedUnicodeRecord[] = []
+  let pendingRange: PendingRange | undefined
+
+  for (const rawLine of source.split(/\r?\n/u)) {
+    pendingRange = parseUnicodeDataLine(records, rawLine, pendingRange)
+  }
+
+  finalizePendingRange(pendingRange)
 
   return records
 }
 
 export const isPrivateUse = (cp: number): boolean =>
-  (cp >= 0xe000 && cp <= 0xf8ff) || (cp >= 0xf0000 && cp <= 0xffffd) || (cp >= 0x100000 && cp <= 0x10fffd)
+  (cp >= 0xe000 && cp <= 0xf8ff) ||
+  (cp >= 0xf0000 && cp <= 0xffffd) ||
+  (cp >= 0x100000 && cp <= 0x10fffd)
 
 export const isNoncharacter = (cp: number): boolean =>
   (cp >= 0xfdd0 && cp <= 0xfdef) || (cp & 0xfffe) === 0xfffe
@@ -454,21 +636,21 @@ export const classifyKind = (category: string, flags: string[]): CharacterKind =
   return 'glyph'
 }
 
+const shouldCompactField = (field: unknown): boolean => {
+  if (field === undefined) {
+    return true
+  }
+
+  if (Array.isArray(field)) {
+    return field.length === 0
+  }
+
+  return typeof field === 'object' && field !== null && Object.keys(field).length === 0
+}
+
 const compactRecord = <T extends Record<string, unknown>>(value: T): T => {
   for (const key of Object.keys(value) as Array<keyof T>) {
-    const field = value[key]
-
-    if (field === undefined) {
-      delete value[key]
-      continue
-    }
-
-    if (Array.isArray(field) && field.length === 0) {
-      delete value[key]
-      continue
-    }
-
-    if (typeof field === 'object' && field && !Array.isArray(field) && Object.keys(field).length === 0) {
+    if (shouldCompactField(value[key])) {
       delete value[key]
     }
   }
@@ -510,33 +692,48 @@ const getPrimaryControlAlias = (aliases: AliasEntry[]): string | undefined => {
   return undefined
 }
 
+const flagDescriptions = new Map<string, string>([
+  [
+    'private-use',
+    'A private-use code point reserved for application-specific meaning ' +
+      'rather than standardized interchange.',
+  ],
+  [
+    'surrogate',
+    'A surrogate code point used in UTF-16 encoding, ' +
+      'not a standalone Unicode scalar value.',
+  ],
+  [
+    'noncharacter',
+    'A permanently reserved noncharacter code point ' +
+      'that is not intended for open interchange.',
+  ],
+])
+
+const kindDescriptions = new Map<CharacterKind, string>([
+  ['control', 'A control character used for text or device control rather than a visible glyph.'],
+  ['whitespace', 'A whitespace character that affects spacing, line breaks, or text layout.'],
+  [
+    'format',
+    'An invisible format character that influences shaping, ordering, or segmentation.',
+  ],
+  [
+    'combining',
+    'A combining mark that attaches to a preceding base character rather than standing alone.',
+  ],
+])
+
 const describeRecord = (record: Omit<CharacterRecord, 'description'>): string => {
-  if (record.flags?.includes('private-use')) {
-    return 'A private-use code point reserved for application-specific meaning rather than standardized interchange.'
+  const flagDescription = record.flags?.find((flag) => flagDescriptions.has(flag))
+
+  if (flagDescription) {
+    return flagDescriptions.get(flagDescription) ?? 'Unknown character description.'
   }
 
-  if (record.flags?.includes('surrogate')) {
-    return 'A surrogate code point used in UTF-16 encoding, not a standalone Unicode scalar value.'
-  }
+  const kindDescription = kindDescriptions.get(record.kind)
 
-  if (record.flags?.includes('noncharacter')) {
-    return 'A permanently reserved noncharacter code point that is not intended for open interchange.'
-  }
-
-  if (record.kind === 'control') {
-    return 'A control character used for text or device control rather than a visible glyph.'
-  }
-
-  if (record.kind === 'whitespace') {
-    return 'A whitespace character that affects spacing, line breaks, or text layout.'
-  }
-
-  if (record.kind === 'format') {
-    return 'An invisible format character that influences shaping, ordering, or segmentation.'
-  }
-
-  if (record.kind === 'combining') {
-    return 'A combining mark that attaches to a preceding base character rather than standing alone.'
+  if (kindDescription) {
+    return kindDescription
   }
 
   return `A ${getCategoryLabel(record.category)} in the ${record.block} block.`
@@ -598,73 +795,118 @@ const getGenericKeywords = (kind: CharacterKind, flags: string[]): string[] => {
   return keywords
 }
 
+const getAliases = (
+  parsedRecord: ParsedUnicodeRecord,
+  aliasEntries: AliasEntry[],
+  name: string,
+): string[] =>
+  dedupe([
+    parsedRecord.legacyName,
+    parsedRecord.isoComment,
+    ...aliasEntries.map((entry) => entry.value),
+  ]).filter((value) => value !== name)
+
+const getDescription = (
+  parsedRecord: ParsedUnicodeRecord,
+  name: string,
+  aliases: string[],
+  block: string,
+  script: string,
+  ageValue: string,
+  kind: CharacterKind,
+  flags: string[],
+  keywords: string[],
+  hidden: boolean | undefined,
+  featuredIn: string[],
+): string | undefined => {
+  const override = descriptionOverrides[parsedRecord.cp]
+
+  if (override) {
+    return override
+  }
+
+  if (kind === 'glyph' && !hidden) {
+    return undefined
+  }
+
+  return describeRecord({
+    cp: parsedRecord.cp,
+    name,
+    aliases,
+    block,
+    script,
+    category: parsedRecord.category,
+    age: ageValue === 'Unassigned' ? undefined : ageValue,
+    kind,
+    flags,
+    keywords,
+    hidden,
+    decomposition: parsedRecord.decomposition,
+    caseMap: parsedRecord.caseMap,
+    featuredIn,
+  })
+}
+
+const buildCharacterRecord = (
+  parsedRecord: ParsedUnicodeRecord,
+  context: BuildContext,
+): CharacterRecord => {
+  const aliasEntries = context.aliasLookup.get(parsedRecord.cp) ?? []
+  const primaryControlAlias =
+    parsedRecord.name === '<control>' ? getPrimaryControlAlias(aliasEntries) : undefined
+  const derivedFlags = getDerivedFlags(parsedRecord.cp, parsedRecord.name)
+  const block = findRangeValue(context.blockRanges, parsedRecord.cp, 'No Block')
+  const script = findRangeValue(context.scriptRanges, parsedRecord.cp, 'Unknown')
+  const ageValue = findRangeValue(context.ageRanges, parsedRecord.cp, 'Unassigned')
+  const propertyFlags = context.propertyLookup.get(parsedRecord.cp) ?? []
+  const flags = dedupe([...propertyFlags, ...derivedFlags]).sort()
+  const kind = classifyKind(parsedRecord.category, flags)
+  const featuredIn = getFeaturedSetIds(parsedRecord.cp)
+  const name = primaryControlAlias ?? parsedRecord.name
+  const aliases = getAliases(parsedRecord, aliasEntries, name)
+  const keywords = dedupe([
+    ...(searchKeywordOverrides[parsedRecord.cp] ?? []),
+    ...getGenericKeywords(kind, flags),
+  ])
+  const hidden = isHiddenByDefault(flags) || undefined
+  const description = getDescription(
+    parsedRecord,
+    name,
+    aliases,
+    block,
+    script,
+    ageValue,
+    kind,
+    flags,
+    keywords,
+    hidden,
+    featuredIn,
+  )
+
+  return compactRecord<CharacterRecord>({
+    cp: parsedRecord.cp,
+    name,
+    aliases,
+    block,
+    script,
+    category: parsedRecord.category,
+    age: ageValue === 'Unassigned' ? undefined : ageValue,
+    description,
+    kind,
+    flags,
+    keywords,
+    hidden,
+    decomposition: parsedRecord.decomposition,
+    caseMap: parsedRecord.caseMap,
+    featuredIn,
+  })
+}
+
 export const buildCharacterRecords = (
   parsedRecords: ParsedUnicodeRecord[],
   context: BuildContext,
 ): CharacterRecord[] =>
-  parsedRecords.map((parsedRecord) => {
-    const aliasEntries = context.aliasLookup.get(parsedRecord.cp) ?? []
-    const primaryControlAlias = parsedRecord.name === '<control>' ? getPrimaryControlAlias(aliasEntries) : undefined
-    const derivedFlags = getDerivedFlags(parsedRecord.cp, parsedRecord.name)
-    const block = findRangeValue(context.blockRanges, parsedRecord.cp, 'No Block')
-    const script = findRangeValue(context.scriptRanges, parsedRecord.cp, 'Unknown')
-    const ageValue = findRangeValue(context.ageRanges, parsedRecord.cp, 'Unassigned')
-    const propertyFlags = context.propertyLookup.get(parsedRecord.cp) ?? []
-    const flags = dedupe([...propertyFlags, ...derivedFlags]).sort()
-    const kind = classifyKind(parsedRecord.category, flags)
-    const featuredIn = getFeaturedSetIds(parsedRecord.cp)
-    const name = primaryControlAlias ?? parsedRecord.name
-    const aliases = dedupe([
-      parsedRecord.legacyName,
-      parsedRecord.isoComment,
-      ...aliasEntries.map((entry) => entry.value),
-    ]).filter((value) => value !== name)
-    const keywords = dedupe([
-      ...(searchKeywordOverrides[parsedRecord.cp] ?? []),
-      ...getGenericKeywords(kind, flags),
-    ])
-    const hidden = isHiddenByDefault(flags) || undefined
-    const description =
-      descriptionOverrides[parsedRecord.cp] ??
-      (kind !== 'glyph' || hidden
-        ? describeRecord({
-            cp: parsedRecord.cp,
-            name,
-            aliases,
-            block,
-            script,
-            category: parsedRecord.category,
-            age: ageValue === 'Unassigned' ? undefined : ageValue,
-            kind,
-            flags,
-            keywords,
-            hidden,
-            decomposition: parsedRecord.decomposition,
-            caseMap: parsedRecord.caseMap,
-            featuredIn,
-          })
-        : undefined)
-
-    const record = compactRecord<CharacterRecord>({
-      cp: parsedRecord.cp,
-      name,
-      aliases,
-      block,
-      script,
-      category: parsedRecord.category,
-      age: ageValue === 'Unassigned' ? undefined : ageValue,
-      description,
-      kind,
-      flags,
-      keywords,
-      hidden,
-      decomposition: parsedRecord.decomposition,
-      caseMap: parsedRecord.caseMap,
-      featuredIn,
-    })
-
-    return record
-  })
+  parsedRecords.map((parsedRecord) => buildCharacterRecord(parsedRecord, context))
 
 export const toSearchRecord = (record: CharacterRecord): SearchRecord => {
   return compactRecord<SearchRecord>({
@@ -724,7 +966,9 @@ export const resetBlockOutputDirectory = async (): Promise<void> => {
   await mkdir(blockOutputDir, { recursive: true })
 }
 
-export const readVendoredFile = async (fileName: (typeof vendoredSourceFiles)[number] | string): Promise<string> =>
+export const readVendoredFile = async (
+  fileName: string,
+): Promise<string> =>
   readFile(path.join(vendorDir, fileName), 'utf8')
 
 export const assertVendoredFilesExist = async (): Promise<void> => {

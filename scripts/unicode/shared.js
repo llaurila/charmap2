@@ -114,14 +114,28 @@ export const findRangeValue = (ranges, cp, fallback) => {
     }
     return fallback;
 };
+const getContentLine = (rawLine) => rawLine.split('#', 1)[0]?.trim() ?? '';
+const parseTrimmedFields = (line) => line.split(';').map((part) => part.trim());
+const addPropertyRange = (propertyLookup, rangeText, propertyLabel) => {
+    const { start, end } = parseCodePointRange(rangeText);
+    for (let cp = start; cp <= end; cp += 1) {
+        const existing = propertyLookup.get(cp) ?? new Set();
+        existing.add(propertyLabel);
+        propertyLookup.set(cp, existing);
+    }
+};
+const sortPropertyLookup = (propertyLookup) => new Map(Array.from(propertyLookup.entries(), ([cp, values]) => [
+    cp,
+    Array.from(values.values()).sort(),
+]));
 export const parseNameAliases = (source) => {
     const aliases = new Map();
     for (const rawLine of source.split(/\r?\n/u)) {
-        const line = rawLine.split('#', 1)[0]?.trim() ?? '';
+        const line = getContentLine(rawLine);
         if (!line) {
             continue;
         }
-        const [cpText, aliasValue, aliasType] = line.split(';').map((part) => part.trim());
+        const [cpText, aliasValue, aliasType] = parseTrimmedFields(line);
         if (!cpText || !aliasValue || !aliasType) {
             throw new Error(`Invalid alias line: ${rawLine}`);
         }
@@ -135,23 +149,18 @@ export const parseNameAliases = (source) => {
 export const parseSelectedProperties = (source) => {
     const propertyLookup = new Map();
     for (const rawLine of source.split(/\r?\n/u)) {
-        const line = rawLine.split('#', 1)[0]?.trim() ?? '';
+        const line = getContentLine(rawLine);
         if (!line) {
             continue;
         }
-        const [rangeText, propertyName] = line.split(';').map((part) => part.trim());
+        const [rangeText, propertyName] = parseTrimmedFields(line);
         const propertyLabel = propertyName ? propertyLabelMap[propertyName] : undefined;
         if (!rangeText || !propertyLabel) {
             continue;
         }
-        const { start, end } = parseCodePointRange(rangeText);
-        for (let cp = start; cp <= end; cp += 1) {
-            const existing = propertyLookup.get(cp) ?? new Set();
-            existing.add(propertyLabel);
-            propertyLookup.set(cp, existing);
-        }
+        addPropertyRange(propertyLookup, rangeText, propertyLabel);
     }
-    return new Map(Array.from(propertyLookup.entries(), ([cp, values]) => [cp, Array.from(values.values()).sort()]));
+    return sortPropertyLookup(propertyLookup);
 };
 export const getHangulSyllableName = (cp) => {
     const syllableIndex = cp - 0xac00;
@@ -163,9 +172,80 @@ export const getHangulSyllableName = (cp) => {
     if (syllableIndex < 0 || syllableIndex >= sCount) {
         throw new Error(`Code point U+${formatCodePoint(cp)} is not a Hangul syllable.`);
     }
-    const leading = ['G', 'GG', 'N', 'D', 'DD', 'R', 'M', 'B', 'BB', 'S', 'SS', 'NG', 'J', 'JJ', 'C', 'K', 'T', 'P', 'H'];
-    const vowel = ['A', 'AE', 'YA', 'YAE', 'EO', 'E', 'YEO', 'YE', 'O', 'WA', 'WAE', 'OE', 'YO', 'U', 'WEO', 'WE', 'WI', 'YU', 'EU', 'YI', 'I'];
-    const trailing = ['', 'G', 'GG', 'GS', 'N', 'NJ', 'NH', 'D', 'L', 'LG', 'LM', 'LB', 'LS', 'LT', 'LP', 'LH', 'M', 'B', 'BS', 'S', 'SS', 'NG', 'J', 'C', 'K', 'T', 'P', 'H'];
+    const leading = [
+        'G',
+        'GG',
+        'N',
+        'D',
+        'DD',
+        'R',
+        'M',
+        'B',
+        'BB',
+        'S',
+        'SS',
+        'NG',
+        'J',
+        'JJ',
+        'C',
+        'K',
+        'T',
+        'P',
+        'H',
+    ];
+    const vowel = [
+        'A',
+        'AE',
+        'YA',
+        'YAE',
+        'EO',
+        'E',
+        'YEO',
+        'YE',
+        'O',
+        'WA',
+        'WAE',
+        'OE',
+        'YO',
+        'U',
+        'WEO',
+        'WE',
+        'WI',
+        'YU',
+        'EU',
+        'YI',
+        'I',
+    ];
+    const trailing = [
+        '',
+        'G',
+        'GG',
+        'GS',
+        'N',
+        'NJ',
+        'NH',
+        'D',
+        'L',
+        'LG',
+        'LM',
+        'LB',
+        'LS',
+        'LT',
+        'LP',
+        'LH',
+        'M',
+        'B',
+        'BS',
+        'S',
+        'SS',
+        'NG',
+        'J',
+        'C',
+        'K',
+        'T',
+        'P',
+        'H',
+    ];
     const leadingIndex = Math.floor(syllableIndex / nCount);
     const vowelIndex = Math.floor((syllableIndex % nCount) / tCount);
     const trailingIndex = syllableIndex % tCount;
@@ -175,28 +255,30 @@ export const synthesizeRangeName = (label, cp) => {
     if (label === 'Hangul Syllable') {
         return getHangulSyllableName(cp);
     }
-    if (label.startsWith('CJK Ideograph') || label.startsWith('CJK Unified Ideograph')) {
-        return `CJK UNIFIED IDEOGRAPH-${formatCodePoint(cp)}`;
+    const prefixedName = [
+        ['CJK Ideograph', 'CJK UNIFIED IDEOGRAPH'],
+        ['CJK Unified Ideograph', 'CJK UNIFIED IDEOGRAPH'],
+        ['Tangut Ideograph', 'TANGUT IDEOGRAPH'],
+    ].find(([prefix]) => label.startsWith(prefix));
+    if (prefixedName) {
+        return `${prefixedName[1]}-${formatCodePoint(cp)}`;
     }
-    if (label.startsWith('Tangut Ideograph')) {
-        return `TANGUT IDEOGRAPH-${formatCodePoint(cp)}`;
+    const exactName = new Map([
+        ['Nushu Character', 'NUSHU CHARACTER'],
+        ['Khitan Small Script Character', 'KHITAN SMALL SCRIPT CHARACTER'],
+    ]).get(label);
+    if (exactName) {
+        return `${exactName}-${formatCodePoint(cp)}`;
     }
-    if (label === 'Nushu Character') {
-        return `NUSHU CHARACTER-${formatCodePoint(cp)}`;
-    }
-    if (label === 'Khitan Small Script Character') {
-        return `KHITAN SMALL SCRIPT CHARACTER-${formatCodePoint(cp)}`;
+    const containedName = [
+        ['Private Use', 'Private Use'],
+        ['Noncharacter', 'Noncharacter'],
+    ].find(([value]) => label.includes(value));
+    if (containedName) {
+        return containedName[1];
     }
     if (label.includes('Surrogate')) {
-        return label
-            .replace(/\s+/gu, ' ')
-            .replace(/^\w/u, (match) => match.toUpperCase());
-    }
-    if (label.includes('Private Use')) {
-        return 'Private Use';
-    }
-    if (label.includes('Noncharacter')) {
-        return 'Noncharacter';
+        return label.replace(/\s+/gu, ' ').replace(/^\w/u, (match) => match.toUpperCase());
     }
     throw new Error(`Unhandled range naming rule for '${label}'.`);
 };
@@ -242,62 +324,95 @@ const normalizePlaceholderName = (value, cp) => {
     }
     return value.slice(1, -1);
 };
+const unicodeRangeFirstPattern = /^<(.+), First>$/u;
+const unicodeRangeLastPattern = /^<(.+), Last>$/u;
+const createRangeRecord = (cp, name, fields) => ({
+    cp,
+    name,
+    category: fields[2] ?? 'Cn',
+    decomposition: parseDecomposition(fields[5] ?? ''),
+    caseMap: parseCaseMap(fields[12] ?? '', fields[13] ?? '', fields[14] ?? ''),
+    legacyName: fields[10] || undefined,
+    isoComment: fields[11] || undefined,
+});
+const expandPendingRange = (records, pendingRange, rangeEnd) => {
+    for (let currentCp = pendingRange.start; currentCp <= rangeEnd; currentCp += 1) {
+        records.push(createRangeRecord(currentCp, synthesizeRangeName(pendingRange.label, currentCp), pendingRange.fields));
+    }
+};
+const getPendingRangeLabel = (rawName) => {
+    const firstLabel = unicodeRangeFirstPattern.exec(rawName)?.[1];
+    if (firstLabel) {
+        return { firstLabel };
+    }
+    return {
+        lastLabel: unicodeRangeLastPattern.exec(rawName)?.[1],
+    };
+};
+const parseUnicodeDataLine = (records, rawLine, pendingRange) => {
+    const line = rawLine.trim();
+    if (!line) {
+        return pendingRange;
+    }
+    return parseUnicodeDataContentLine(records, line, pendingRange);
+};
+const getParsedUnicodeDataLine = (line) => {
+    const fields = line.split(';');
+    const cp = Number.parseInt(fields[0] ?? '', 16);
+    const rawName = fields[1] ?? '';
+    const { firstLabel, lastLabel } = getPendingRangeLabel(rawName);
+    return {
+        cp,
+        fields,
+        firstLabel,
+        lastLabel,
+        rawName,
+    };
+};
+const assertMatchingPendingRange = (pendingRange, lastLabel) => {
+    if (!pendingRange || pendingRange.label !== lastLabel) {
+        throw new Error(`Mismatched UnicodeData range end for '${lastLabel}'.`);
+    }
+    return pendingRange;
+};
+const appendStandaloneUnicodeRecord = (records, cp, fields, rawName) => {
+    const name = rawName.startsWith('<') ? normalizePlaceholderName(rawName, cp) : rawName;
+    records.push(createRangeRecord(cp, name, fields));
+};
+const parseUnicodeDataContentLine = (records, line, pendingRange) => {
+    const parsedLine = getParsedUnicodeDataLine(line);
+    if (parsedLine.firstLabel) {
+        return {
+            start: parsedLine.cp,
+            label: parsedLine.firstLabel,
+            fields: parsedLine.fields,
+        };
+    }
+    if (!parsedLine.lastLabel) {
+        appendStandaloneUnicodeRecord(records, parsedLine.cp, parsedLine.fields, parsedLine.rawName);
+        return pendingRange;
+    }
+    expandPendingRange(records, assertMatchingPendingRange(pendingRange, parsedLine.lastLabel), parsedLine.cp);
+    return undefined;
+};
+const finalizePendingRange = (pendingRange) => {
+    if (pendingRange) {
+        throw new Error(`Unterminated UnicodeData range '${pendingRange.label}'.`);
+    }
+    return undefined;
+};
 export const parseUnicodeData = (source) => {
     const records = [];
     let pendingRange;
     for (const rawLine of source.split(/\r?\n/u)) {
-        const line = rawLine.trim();
-        if (!line) {
-            continue;
-        }
-        const fields = line.split(';');
-        const cp = Number.parseInt(fields[0] ?? '', 16);
-        const rawName = fields[1] ?? '';
-        const rangeStartMatch = rawName.match(/^<(.+), First>$/u);
-        const rangeEndMatch = rawName.match(/^<(.+), Last>$/u);
-        if (rangeStartMatch) {
-            pendingRange = {
-                start: cp,
-                label: rangeStartMatch[1],
-                fields,
-            };
-            continue;
-        }
-        if (rangeEndMatch) {
-            const rangeLabel = rangeEndMatch[1];
-            if (!pendingRange || pendingRange.label !== rangeLabel) {
-                throw new Error(`Mismatched UnicodeData range end for '${rangeLabel}'.`);
-            }
-            for (let currentCp = pendingRange.start; currentCp <= cp; currentCp += 1) {
-                records.push({
-                    cp: currentCp,
-                    name: synthesizeRangeName(rangeLabel, currentCp),
-                    category: pendingRange.fields[2] ?? 'Cn',
-                    decomposition: parseDecomposition(pendingRange.fields[5] ?? ''),
-                    caseMap: parseCaseMap(pendingRange.fields[12] ?? '', pendingRange.fields[13] ?? '', pendingRange.fields[14] ?? ''),
-                    legacyName: pendingRange.fields[10] || undefined,
-                    isoComment: pendingRange.fields[11] || undefined,
-                });
-            }
-            pendingRange = undefined;
-            continue;
-        }
-        records.push({
-            cp,
-            name: rawName.startsWith('<') ? normalizePlaceholderName(rawName, cp) : rawName,
-            category: fields[2] ?? 'Cn',
-            decomposition: parseDecomposition(fields[5] ?? ''),
-            caseMap: parseCaseMap(fields[12] ?? '', fields[13] ?? '', fields[14] ?? ''),
-            legacyName: fields[10] || undefined,
-            isoComment: fields[11] || undefined,
-        });
+        pendingRange = parseUnicodeDataLine(records, rawLine, pendingRange);
     }
-    if (pendingRange) {
-        throw new Error(`Unterminated UnicodeData range '${pendingRange.label}'.`);
-    }
+    finalizePendingRange(pendingRange);
     return records;
 };
-export const isPrivateUse = (cp) => (cp >= 0xe000 && cp <= 0xf8ff) || (cp >= 0xf0000 && cp <= 0xffffd) || (cp >= 0x100000 && cp <= 0x10fffd);
+export const isPrivateUse = (cp) => (cp >= 0xe000 && cp <= 0xf8ff) ||
+    (cp >= 0xf0000 && cp <= 0xffffd) ||
+    (cp >= 0x100000 && cp <= 0x10fffd);
 export const isNoncharacter = (cp) => (cp >= 0xfdd0 && cp <= 0xfdef) || (cp & 0xfffe) === 0xfffe;
 export const isSurrogate = (cp) => cp >= 0xd800 && cp <= 0xdfff;
 export const classifyKind = (category, flags) => {
@@ -315,18 +430,18 @@ export const classifyKind = (category, flags) => {
     }
     return 'glyph';
 };
+const shouldCompactField = (field) => {
+    if (field === undefined) {
+        return true;
+    }
+    if (Array.isArray(field)) {
+        return field.length === 0;
+    }
+    return typeof field === 'object' && field !== null && Object.keys(field).length === 0;
+};
 const compactRecord = (value) => {
     for (const key of Object.keys(value)) {
-        const field = value[key];
-        if (field === undefined) {
-            delete value[key];
-            continue;
-        }
-        if (Array.isArray(field) && field.length === 0) {
-            delete value[key];
-            continue;
-        }
-        if (typeof field === 'object' && field && !Array.isArray(field) && Object.keys(field).length === 0) {
+        if (shouldCompactField(value[key])) {
             delete value[key];
         }
     }
@@ -357,27 +472,43 @@ const getPrimaryControlAlias = (aliases) => {
     }
     return undefined;
 };
+const flagDescriptions = new Map([
+    [
+        'private-use',
+        'A private-use code point reserved for application-specific meaning ' +
+            'rather than standardized interchange.',
+    ],
+    [
+        'surrogate',
+        'A surrogate code point used in UTF-16 encoding, ' +
+            'not a standalone Unicode scalar value.',
+    ],
+    [
+        'noncharacter',
+        'A permanently reserved noncharacter code point ' +
+            'that is not intended for open interchange.',
+    ],
+]);
+const kindDescriptions = new Map([
+    ['control', 'A control character used for text or device control rather than a visible glyph.'],
+    ['whitespace', 'A whitespace character that affects spacing, line breaks, or text layout.'],
+    [
+        'format',
+        'An invisible format character that influences shaping, ordering, or segmentation.',
+    ],
+    [
+        'combining',
+        'A combining mark that attaches to a preceding base character rather than standing alone.',
+    ],
+]);
 const describeRecord = (record) => {
-    if (record.flags?.includes('private-use')) {
-        return 'A private-use code point reserved for application-specific meaning rather than standardized interchange.';
+    const flagDescription = record.flags?.find((flag) => flagDescriptions.has(flag));
+    if (flagDescription) {
+        return flagDescriptions.get(flagDescription) ?? 'Unknown character description.';
     }
-    if (record.flags?.includes('surrogate')) {
-        return 'A surrogate code point used in UTF-16 encoding, not a standalone Unicode scalar value.';
-    }
-    if (record.flags?.includes('noncharacter')) {
-        return 'A permanently reserved noncharacter code point that is not intended for open interchange.';
-    }
-    if (record.kind === 'control') {
-        return 'A control character used for text or device control rather than a visible glyph.';
-    }
-    if (record.kind === 'whitespace') {
-        return 'A whitespace character that affects spacing, line breaks, or text layout.';
-    }
-    if (record.kind === 'format') {
-        return 'An invisible format character that influences shaping, ordering, or segmentation.';
-    }
-    if (record.kind === 'combining') {
-        return 'A combining mark that attaches to a preceding base character rather than standing alone.';
+    const kindDescription = kindDescriptions.get(record.kind);
+    if (kindDescription) {
+        return kindDescription;
     }
     return `A ${getCategoryLabel(record.category)} in the ${record.block} block.`;
 };
@@ -420,7 +551,37 @@ const getGenericKeywords = (kind, flags) => {
     }
     return keywords;
 };
-export const buildCharacterRecords = (parsedRecords, context) => parsedRecords.map((parsedRecord) => {
+const getAliases = (parsedRecord, aliasEntries, name) => dedupe([
+    parsedRecord.legacyName,
+    parsedRecord.isoComment,
+    ...aliasEntries.map((entry) => entry.value),
+]).filter((value) => value !== name);
+const getDescription = (parsedRecord, name, aliases, block, script, ageValue, kind, flags, keywords, hidden, featuredIn) => {
+    const override = descriptionOverrides[parsedRecord.cp];
+    if (override) {
+        return override;
+    }
+    if (kind === 'glyph' && !hidden) {
+        return undefined;
+    }
+    return describeRecord({
+        cp: parsedRecord.cp,
+        name,
+        aliases,
+        block,
+        script,
+        category: parsedRecord.category,
+        age: ageValue === 'Unassigned' ? undefined : ageValue,
+        kind,
+        flags,
+        keywords,
+        hidden,
+        decomposition: parsedRecord.decomposition,
+        caseMap: parsedRecord.caseMap,
+        featuredIn,
+    });
+};
+const buildCharacterRecord = (parsedRecord, context) => {
     const aliasEntries = context.aliasLookup.get(parsedRecord.cp) ?? [];
     const primaryControlAlias = parsedRecord.name === '<control>' ? getPrimaryControlAlias(aliasEntries) : undefined;
     const derivedFlags = getDerivedFlags(parsedRecord.cp, parsedRecord.name);
@@ -432,36 +593,14 @@ export const buildCharacterRecords = (parsedRecords, context) => parsedRecords.m
     const kind = classifyKind(parsedRecord.category, flags);
     const featuredIn = getFeaturedSetIds(parsedRecord.cp);
     const name = primaryControlAlias ?? parsedRecord.name;
-    const aliases = dedupe([
-        parsedRecord.legacyName,
-        parsedRecord.isoComment,
-        ...aliasEntries.map((entry) => entry.value),
-    ]).filter((value) => value !== name);
+    const aliases = getAliases(parsedRecord, aliasEntries, name);
     const keywords = dedupe([
         ...(searchKeywordOverrides[parsedRecord.cp] ?? []),
         ...getGenericKeywords(kind, flags),
     ]);
     const hidden = isHiddenByDefault(flags) || undefined;
-    const description = descriptionOverrides[parsedRecord.cp] ??
-        (kind !== 'glyph' || hidden
-            ? describeRecord({
-                cp: parsedRecord.cp,
-                name,
-                aliases,
-                block,
-                script,
-                category: parsedRecord.category,
-                age: ageValue === 'Unassigned' ? undefined : ageValue,
-                kind,
-                flags,
-                keywords,
-                hidden,
-                decomposition: parsedRecord.decomposition,
-                caseMap: parsedRecord.caseMap,
-                featuredIn,
-            })
-            : undefined);
-    const record = compactRecord({
+    const description = getDescription(parsedRecord, name, aliases, block, script, ageValue, kind, flags, keywords, hidden, featuredIn);
+    return compactRecord({
         cp: parsedRecord.cp,
         name,
         aliases,
@@ -478,8 +617,8 @@ export const buildCharacterRecords = (parsedRecords, context) => parsedRecords.m
         caseMap: parsedRecord.caseMap,
         featuredIn,
     });
-    return record;
-});
+};
+export const buildCharacterRecords = (parsedRecords, context) => parsedRecords.map((parsedRecord) => buildCharacterRecord(parsedRecord, context));
 export const toSearchRecord = (record) => {
     return compactRecord({
         cp: record.cp,

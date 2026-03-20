@@ -1,5 +1,10 @@
 import path from 'node:path'
-import type { BlockIndexEntry, CharacterRecord, SearchPayload, SearchRecord } from '../../src/types/unicode'
+import type {
+  BlockIndexEntry,
+  CharacterRecord,
+  SearchPayload,
+  SearchRecord,
+} from '../../src/types/unicode'
 import {
   assertVendoredFilesExist,
   blockOutputDir,
@@ -69,7 +74,9 @@ const createSearchPayload = (records: CharacterRecord[]): SearchPayload => {
     const scriptId = scriptIds.get(record.script)
 
     if (blockId === undefined || scriptId === undefined) {
-      throw new Error(`Missing search lookup ids for U+${record.cp.toString(16).toUpperCase()}`)
+      throw new Error(
+        `Missing search lookup ids for U+${record.cp.toString(16).toUpperCase()}`,
+      )
     }
 
     return encodeSearchRecord(record, { blockId, scriptId })
@@ -79,6 +86,44 @@ const createSearchPayload = (records: CharacterRecord[]): SearchPayload => {
     blocks,
     scripts,
     records: encodedRecords,
+  }
+}
+
+const stripSearchOnlyFields = (
+  record: CharacterRecord,
+): CharacterRecord | Omit<
+  CharacterRecord,
+  'featuredIn' | 'aliases' | 'keywords' | 'description' | 'hidden'
+> => {
+  if (
+    record.featuredIn ||
+    record.aliases ||
+    record.keywords ||
+    record.description ||
+    record.hidden
+  ) {
+    return record
+  }
+
+  const { featuredIn, aliases, keywords, description, hidden, ...minimalRecord } = record
+  void featuredIn
+  void aliases
+  void keywords
+  void description
+  void hidden
+  return minimalRecord
+}
+
+const writeBlockFiles = async (
+  blockEntries: BlockIndexEntry[],
+  characterRecords: CharacterRecord[],
+): Promise<void> => {
+  for (const blockEntry of blockEntries) {
+    const blockRecords = characterRecords
+      .filter((record) => record.block === blockEntry.label)
+      .map(stripSearchOnlyFields)
+
+    await writeCompactJson(path.join(outputDir, blockEntry.file), blockRecords)
   }
 }
 
@@ -110,35 +155,17 @@ const run = async (): Promise<void> => {
   const blockEntries = createBlockEntries(characterRecords)
   const searchPayload = createSearchPayload(characterRecords)
 
-  for (const blockEntry of blockEntries) {
-    const blockRecords = characterRecords
-      .filter((record) => record.block === blockEntry.label)
-      .map((record) => {
-        if (record.featuredIn || record.aliases || record.keywords || record.description || record.hidden) {
-          return record
-        }
-
-        const { featuredIn, aliases, keywords, description, hidden, ...minimalRecord } = record
-        void featuredIn
-        void aliases
-        void keywords
-        void description
-        void hidden
-        return minimalRecord
-      })
-    await writeCompactJson(path.join(outputDir, blockEntry.file), blockRecords)
-  }
-
+  await writeBlockFiles(blockEntries, characterRecords)
   await writeCompactJson(path.join(outputDir, 'search-core.json'), searchPayload)
   await writeCompactJson(path.join(outputDir, 'ranges.json'), blockEntries)
 
   console.log(
-    `Generated ${characterRecords.length} character records across ${blockEntries.length} block files in ${blockOutputDir}.`,
+    `Generated ${characterRecords.length} character records ` +
+      `across ${blockEntries.length} block files in ${blockOutputDir}.`,
   )
 }
 
 run().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error)
-  console.error(message)
+  console.error(error instanceof Error ? error.message : 'Unknown error')
   process.exitCode = 1
 })

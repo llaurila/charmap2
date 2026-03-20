@@ -32,7 +32,6 @@ const run = async (): Promise<void> => {
 }
 
 run().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error)
-  console.error(message)
+  console.error(error instanceof Error ? error.message : 'Unknown error')
   process.exitCode = 1
 })

@@ -20,7 +20,9 @@ describe('unicode helpers', () => {
   })
 
   it('synthesizes algorithmic ideograph names', () => {
-    expect(synthesizeRangeName('CJK Ideograph Extension A', 0x3400)).toBe('CJK UNIFIED IDEOGRAPH-3400')
+    expect(synthesizeRangeName('CJK Ideograph Extension A', 0x3400)).toBe(
+      'CJK UNIFIED IDEOGRAPH-3400',
+    )
     expect(synthesizeRangeName('Tangut Ideograph', 0x17000)).toBe('TANGUT IDEOGRAPH-17000')
   })
 
