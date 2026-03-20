@@ -4,3 +4,13 @@ dist/
 *.local
 coverage/
 *.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+src/constants/*.js
+src/constants/*.d.ts
+src/data/*.js
+src/data/*.d.ts
+src/types/*.js
+src/types/*.d.ts
+scripts/unicode/*.js
+scripts/unicode/*.d.ts
