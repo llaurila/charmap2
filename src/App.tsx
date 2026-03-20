@@ -354,6 +354,8 @@ export default function App() {
           selectedDetailRecord={selectedDetailRecord}
         />
       </main>
+
+      <footer className="app-footer">© Copyright 2026 Vincent Laurila</footer>
     </div>
   )
 }
