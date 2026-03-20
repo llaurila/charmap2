@@ -212,6 +212,7 @@ code {
 }
 
 .workspace {
+  align-items: start;
   display: grid;
   grid-template-columns: minmax(240px, 280px) minmax(0, 1fr) minmax(300px, 380px);
   gap: 1.25rem;
@@ -229,6 +230,12 @@ code {
 
 .panel {
   padding: 1.25rem;
+}
+
+.results-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .panel-heading {
@@ -301,8 +308,10 @@ code {
 }
 
 .results-scroller {
+  flex: 1 1 auto;
   max-height: 70vh;
   min-height: 24rem;
+  min-width: 0;
   overflow: auto;
   padding-right: 0.25rem;
 }
@@ -382,6 +391,7 @@ code {
 }
 
 .detail-panel {
+  align-self: start;
   display: grid;
   align-content: start;
   gap: 1rem;
