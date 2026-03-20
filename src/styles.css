@@ -136,6 +136,45 @@ code {
   padding: 1rem;
 }
 
+.install-panel {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1.5rem;
+  padding: 1.1rem 1.2rem;
+  background:
+    linear-gradient(135deg, rgba(8, 79, 74, 0.06), rgba(255, 232, 178, 0.24)),
+    var(--surface);
+}
+
+.install-panel__header {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.install-panel__body {
+  margin: 0;
+  max-width: 48rem;
+  color: var(--text-muted);
+}
+
+.install-button {
+  justify-self: start;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  padding: 0.9rem 1.2rem;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  color: #f8fffe;
+  font-weight: 700;
+  box-shadow: 0 12px 24px rgba(13, 111, 104, 0.18);
+  transition: transform 140ms ease, box-shadow 140ms ease, filter 140ms ease;
+}
+
+.install-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 28px rgba(13, 111, 104, 0.22);
+  filter: saturate(1.05);
+}
+
 .search-field input {
   width: 100%;
   border: 1px solid transparent;
@@ -150,7 +189,8 @@ code {
 .chip:focus-visible,
 .result-card:focus-visible,
 .copy-card:focus-visible,
-.ghost-button:focus-visible {
+.ghost-button:focus-visible,
+.install-button:focus-visible {
   outline: none;
   border-color: rgba(13, 111, 104, 0.45);
   box-shadow: 0 0 0 4px rgba(13, 111, 104, 0.12);
@@ -419,6 +459,7 @@ code {
   }
 
   .hero,
+  .install-panel,
   .search-panel,
   .workspace {
     grid-template-columns: 1fr;

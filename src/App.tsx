@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DetailPanel } from './components/DetailPanel'
 import { FeaturedSetsPanel } from './components/FeaturedSetsPanel'
+import { InstallPanel } from './components/InstallPanel'
 import { ResultsPanel } from './components/ResultsPanel'
 import { UNICODE_VERSION } from './constants/unicode'
 import { featuredSets } from './data/featuredSets'
@@ -17,12 +18,22 @@ import {
   moveSelection,
   RESULT_ROW_HEIGHT,
 } from './utils/resultState'
+import { getInstallSurface, isInstalledDisplayMode } from './utils/install'
 import { getSingleCodePointQuery, searchCharacters } from './utils/search'
 
 // eslint-disable-next-line complexity
 export default function App() {
   const [queryInput, setQueryInput] = useState('')
   const [activeSet, setActiveSet] = useState<string | undefined>()
+  const [deferredInstallPrompt, setDeferredInstallPrompt] =
+    useState<BeforeInstallPromptEvent | null>(null)
+  const [isInstalled, setIsInstalled] = useState(() =>
+    isInstalledDisplayMode({
+      standalone: window.matchMedia('(display-mode: standalone)').matches,
+      minimalUi: window.matchMedia('(display-mode: minimal-ui)').matches,
+      navigatorStandalone: navigator.standalone,
+    }),
+  )
   const gridRef = useRef<HTMLDivElement | null>(null)
   const query = useDebouncedValue(queryInput, 500)
   const hasQuery = query.length > 0
@@ -119,6 +130,16 @@ export default function App() {
   )
   const copyFormats = selectedDetailRecord ? getCopyFormats(selectedDetailRecord) : []
   const selectedDetailCp = selectedDetailRecord?.cp ?? null
+  const installSurface = useMemo(
+    () =>
+      getInstallSurface({
+        maxTouchPoints: navigator.maxTouchPoints,
+        platform: navigator.platform,
+        userAgent: navigator.userAgent,
+        vendor: navigator.vendor,
+      }),
+    [],
+  )
   const resultsStatusText = isReady
     ? `${results.length.toLocaleString()} matching characters.`
     : 'Loading generated search index.'
@@ -173,6 +194,62 @@ export default function App() {
     [copyValue],
   )
 
+  useEffect(() => {
+    const standaloneQuery = window.matchMedia('(display-mode: standalone)')
+    const minimalUiQuery = window.matchMedia('(display-mode: minimal-ui)')
+
+    const updateInstalledState = (): void => {
+      setIsInstalled(
+        isInstalledDisplayMode({
+          standalone: standaloneQuery.matches,
+          minimalUi: minimalUiQuery.matches,
+          navigatorStandalone: navigator.standalone,
+        }),
+      )
+    }
+
+    const handleBeforeInstallPrompt = (event: BeforeInstallPromptEvent): void => {
+      event.preventDefault()
+      setDeferredInstallPrompt(event)
+    }
+
+    const handleAppInstalled = (): void => {
+      setIsInstalled(true)
+      setDeferredInstallPrompt(null)
+    }
+
+    updateInstalledState()
+    standaloneQuery.addEventListener('change', updateInstalledState)
+    minimalUiQuery.addEventListener('change', updateInstalledState)
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    window.addEventListener('appinstalled', handleAppInstalled)
+
+    return () => {
+      standaloneQuery.removeEventListener('change', updateInstalledState)
+      minimalUiQuery.removeEventListener('change', updateInstalledState)
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+      window.removeEventListener('appinstalled', handleAppInstalled)
+    }
+  }, [])
+
+  const handleInstallClick = useCallback(async (): Promise<void> => {
+    if (!deferredInstallPrompt) {
+      return
+    }
+
+    const promptEvent = deferredInstallPrompt
+    setDeferredInstallPrompt(null)
+    await promptEvent.prompt()
+    const choice = await promptEvent.userChoice
+
+    if (choice.outcome !== 'accepted') {
+      setDeferredInstallPrompt(promptEvent)
+    }
+  }, [deferredInstallPrompt])
+
+  const shouldShowInstallPanel =
+    !isInstalled && (installSurface !== 'chromium' || deferredInstallPrompt !== null)
+
   return (
     <div className="app-shell">
       <div className="sr-only" aria-live="polite" aria-atomic="true">
@@ -192,6 +269,14 @@ export default function App() {
           <span>{blockIndex.length.toLocaleString()} block files</span>
         </div>
       </header>
+
+      {shouldShowInstallPanel ? (
+        <InstallPanel
+          hasPrompt={deferredInstallPrompt !== null}
+          installSurface={installSurface}
+          onInstallClick={handleInstallClick}
+        />
+      ) : null}
 
       <section className="search-panel">
         <label className="search-field">
