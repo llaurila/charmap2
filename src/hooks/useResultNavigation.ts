@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import type { RefObject } from 'react'
+import type { KeyboardEvent, RefObject } from 'react'
 import type { ResultRecord } from '../types/unicode'
 import { moveSelection, RESULT_ROW_HEIGHT } from '../utils/resultState'
 
@@ -14,6 +14,7 @@ type UseResultNavigationOptions = {
 
 type UseResultNavigationResult = {
   focusResultByOffset: (offset: number) => void
+  handleResultCardKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void
   selectResult: (cp: number, shouldFocus?: boolean) => void
 }
 
@@ -70,8 +71,48 @@ export function useResultNavigation({
     [displayResults, gridHeight, gridRef, selectResult, selectedCp, virtualColumnCount],
   )
 
+  const handleResultCardKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLButtonElement>): void => {
+      const offsets: Record<string, number> = {
+        ArrowRight: 1,
+        ArrowLeft: -1,
+        ArrowDown: virtualColumnCount,
+        ArrowUp: -virtualColumnCount,
+      }
+      const offset = offsets[event.key]
+
+      if (offset !== undefined) {
+        event.preventDefault()
+        focusResultByOffset(offset)
+        return
+      }
+
+      if (event.key === 'Home') {
+        event.preventDefault()
+        const first = displayResults[0]
+
+        if (first) {
+          selectResult(first.cp, true)
+        }
+
+        return
+      }
+
+      if (event.key === 'End') {
+        event.preventDefault()
+        const last = displayResults.at(-1)
+
+        if (last) {
+          selectResult(last.cp, true)
+        }
+      }
+    },
+    [displayResults, focusResultByOffset, selectResult, virtualColumnCount],
+  )
+
   return {
     focusResultByOffset,
+    handleResultCardKeyDown,
     selectResult,
   }
 }

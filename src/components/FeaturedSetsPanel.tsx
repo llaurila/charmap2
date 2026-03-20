@@ -1,21 +1,20 @@
 import { UNICODE_VERSION } from '../constants/unicode'
-import { featuredSets } from '../data/featuredSets'
-import type { SearchRecord } from '../types/unicode'
+import type { FeaturedSetItem } from '../hooks/useAppViewModel'
 
 type FeaturedSetsPanelProps = {
   activeSet: string | undefined
   isReady: boolean
+  items: FeaturedSetItem[]
   loadError: string | null
   onSelectSet: (setId: string | undefined) => void
-  searchIndex: SearchRecord[]
 }
 
 export function FeaturedSetsPanel({
   activeSet,
   isReady,
+  items,
   loadError,
   onSelectSet,
-  searchIndex,
 }: FeaturedSetsPanelProps) {
   return (
     <aside className="panel side-panel">
@@ -34,9 +33,7 @@ export function FeaturedSetsPanel({
           <span>All characters</span>
         </button>
 
-        {featuredSets.map((set) => {
-          const count = searchIndex.filter((record) => record.featuredIn?.includes(set.id)).length
-
+        {items.map((set) => {
           return (
             <button
               key={set.id}
@@ -46,7 +43,7 @@ export function FeaturedSetsPanel({
               disabled={!isReady}
             >
               <span>{set.label}</span>
-              <small>{count.toLocaleString()}</small>
+              <small>{set.count.toLocaleString()}</small>
             </button>
           )
         })}

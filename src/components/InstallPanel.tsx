@@ -1,10 +1,5 @@
+import { useInstallPrompt } from '../hooks/useInstallPrompt'
 import type { InstallSurface } from '../utils/install'
-
-type InstallPanelProps = {
-  hasPrompt: boolean
-  installSurface: InstallSurface
-  onInstallClick: () => Promise<void>
-}
 
 type InstallCopy = {
   body: string
@@ -32,16 +27,19 @@ const installCopy: Record<Exclude<InstallSurface, 'other'>, InstallCopy> = {
   },
 }
 
-export function InstallPanel({
-  hasPrompt,
-  installSurface,
-  onInstallClick,
-}: InstallPanelProps) {
+export function InstallPanel() {
+  const { deferredInstallPrompt, handleInstallClick, installSurface, shouldShowInstallPanel } =
+    useInstallPrompt()
+
+  if (!shouldShowInstallPanel) {
+    return null
+  }
+
   if (installSurface === 'other') {
     return null
   }
 
-  if (installSurface === 'chromium' && !hasPrompt) {
+  if (installSurface === 'chromium' && deferredInstallPrompt === null) {
     return null
   }
 
@@ -55,7 +53,7 @@ export function InstallPanel({
       </div>
       <p className="install-panel__body">{copy.body}</p>
       {copy.cta ? (
-        <button type="button" className="install-button" onClick={onInstallClick}>
+        <button type="button" className="install-button" onClick={handleInstallClick}>
           {copy.cta}
         </button>
       ) : null}

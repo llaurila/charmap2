@@ -1,3 +1,4 @@
+import { useDetailCopyFormats } from '../hooks/useDetailCopyFormats'
 import type { CopyFormat } from '../utils/copyFormats'
 import { formatCodePoint } from '../utils/copyFormats'
 import { getGlyphCaption, getPrimaryGlyph } from '../utils/rendering'
@@ -30,9 +31,6 @@ const getDetailDescription = (record: ResultRecord): string => {
 }
 
 type DetailPanelProps = {
-  copiedLabel: string | null
-  copyFormats: CopyFormat[]
-  onCopyFormat: (entry: CopyFormat) => Promise<void>
   selectedDetailRecord: ResultRecord | null
 }
 
@@ -146,18 +144,21 @@ function DetailPanelContent({
 }
 
 export function DetailPanel({
-  copiedLabel,
-  copyFormats,
-  onCopyFormat,
   selectedDetailRecord,
 }: DetailPanelProps) {
+  const { announceMessage, copiedLabel, copyFormats, handleCopyFormat } =
+    useDetailCopyFormats(selectedDetailRecord)
+
   return (
     <aside className="panel detail-panel">
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {announceMessage}
+      </div>
       {selectedDetailRecord ? (
         <DetailPanelContent
           copiedLabel={copiedLabel}
           copyFormats={copyFormats}
-          onCopyFormat={onCopyFormat}
+          onCopyFormat={handleCopyFormat}
           selectedDetailRecord={selectedDetailRecord}
         />
       ) : (
