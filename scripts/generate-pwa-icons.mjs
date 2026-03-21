@@ -48,6 +48,57 @@ const colors = {
   ink: colorWithAlpha(24, 34, 47),
 }
 
+const orbitTiles = [
+  { x: 0.09, y: 0.15, w: 0.125, h: 0.125, r: 0.032 },
+  { x: 0.12, y: 0.36, w: 0.1, h: 0.1, r: 0.028 },
+  { x: 0.13, y: 0.57, w: 0.11, h: 0.11, r: 0.03 },
+  { x: 0.79, y: 0.14, w: 0.12, h: 0.12, r: 0.03 },
+  { x: 0.74, y: 0.59, w: 0.14, h: 0.14, r: 0.035 },
+]
+
+const orbitTileDotOffsets = [
+  { x: 0.34, y: 0.34 },
+  { x: 0.62, y: 0.34 },
+  { x: 0.34, y: 0.62 },
+  { x: 0.62, y: 0.62 },
+]
+
+const sigmaStrokePoints = [
+  { x: 0.664, y: 0.348 },
+  { x: 0.356, y: 0.348 },
+  { x: 0.618, y: 0.5 },
+  { x: 0.356, y: 0.654 },
+  { x: 0.676, y: 0.654 },
+]
+
+const sideCells = [
+  { x: 0.296, y: 0.386, w: 0.052, h: 0.052, r: 0.017 },
+  { x: 0.296, y: 0.474, w: 0.052, h: 0.052, r: 0.017 },
+  { x: 0.296, y: 0.562, w: 0.052, h: 0.052, r: 0.017 },
+  { x: 0.648, y: 0.404, w: 0.052, h: 0.052, r: 0.017 },
+  { x: 0.648, y: 0.492, w: 0.052, h: 0.052, r: 0.017 },
+  { x: 0.648, y: 0.58, w: 0.052, h: 0.052, r: 0.017 },
+]
+
+const footerCells = [
+  { x: 0.31, y: 0.706, w: 0.08, h: 0.05, r: 0.018 },
+  { x: 0.41, y: 0.706, w: 0.08, h: 0.05, r: 0.018 },
+  { x: 0.51, y: 0.706, w: 0.08, h: 0.05, r: 0.018 },
+  { x: 0.61, y: 0.706, w: 0.08, h: 0.05, r: 0.018 },
+]
+
+const headerDots = [
+  { x: 0.364, y: 0.279, r: 0.013 },
+  { x: 0.418, y: 0.279, r: 0.013 },
+  { x: 0.472, y: 0.279, r: 0.013 },
+]
+
+const headerDotOpacities = [0.34, 0.24, 0.18]
+const sideCellOpacities = [0.82, 0.76, 0.7]
+
+const offsetPoints = (points, offsetX = 0, offsetY = 0) =>
+  points.map(({ x, y }) => ({ x: x + offsetX, y: y + offsetY }))
+
 const crc32 = (buffer) => {
   let value = 0xffffffff
 
@@ -212,23 +263,37 @@ const fillCapsule = (buffer, width, x1, y1, x2, y2, radius, color, alpha = 1) =>
   }
 }
 
-const renderGlyphTiles = (buffer, width) => {
+const fillPolyline = (buffer, width, points, radius, color, alpha = 1) => {
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const start = points[index]
+    const end = points[index + 1]
+    fillCapsule(buffer, width, start.x, start.y, end.x, end.y, radius, color, alpha)
+  }
+}
+
+const renderOrbitTiles = (buffer, width) => {
   const tileColor = colorWithAlpha(255, 255, 255)
   const detailColor = colorWithAlpha(255, 255, 255)
 
-  const tiles = [
-    { x: 0.09, y: 0.15, w: 0.125, h: 0.125, r: 0.032 },
-    { x: 0.12, y: 0.36, w: 0.1, h: 0.1, r: 0.028 },
-    { x: 0.13, y: 0.57, w: 0.11, h: 0.11, r: 0.03 },
-    { x: 0.79, y: 0.14, w: 0.12, h: 0.12, r: 0.03 },
-    { x: 0.74, y: 0.59, w: 0.14, h: 0.14, r: 0.035 },
-  ]
-
-  for (const tile of tiles) {
+  for (const tile of orbitTiles) {
     fillRoundedRect(buffer, width, tile.x, tile.y, tile.w, tile.h, tile.r, tileColor, 0.1)
-    fillRoundedRect(buffer, width, tile.x + tile.w * 0.22, tile.y + tile.h * 0.24, tile.w * 0.18, tile.h * 0.52, tile.w * 0.05, detailColor, 0.12)
-    fillRoundedRect(buffer, width, tile.x + tile.w * 0.48, tile.y + tile.h * 0.32, tile.w * 0.22, tile.h * 0.12, tile.w * 0.05, detailColor, 0.12)
-    fillRoundedRect(buffer, width, tile.x + tile.w * 0.48, tile.y + tile.h * 0.56, tile.w * 0.18, tile.h * 0.12, tile.w * 0.05, detailColor, 0.12)
+
+    const dotSize = Math.min(tile.w, tile.h) * 0.19
+    const dotRadius = dotSize * 0.45
+
+    for (const dotOffset of orbitTileDotOffsets) {
+      fillRoundedRect(
+        buffer,
+        width,
+        tile.x + tile.w * dotOffset.x - dotSize / 2,
+        tile.y + tile.h * dotOffset.y - dotSize / 2,
+        dotSize,
+        dotSize,
+        dotRadius,
+        detailColor,
+        0.14,
+      )
+    }
   }
 }
 
@@ -274,38 +339,58 @@ const renderIcon = (size) => {
   fillBackground(buffer, renderSize)
   fillSoftCircle(buffer, renderSize, 0.18, 0.14, 0.23, colors.warmGlow, 0.24)
   fillSoftCircle(buffer, renderSize, 0.82, 0.82, 0.2, colors.coolGlow, 0.18)
-  renderGlyphTiles(buffer, renderSize)
+  renderOrbitTiles(buffer, renderSize)
 
   fillRoundedRect(buffer, renderSize, 0.23, 0.235, 0.54, 0.56, 0.102, colors.ink, 0.08)
   fillRoundedRect(buffer, renderSize, 0.225, 0.22, 0.55, 0.58, 0.108, colors.ink, 0.04)
   fillRoundedRect(buffer, renderSize, 0.22, 0.2, 0.56, 0.58, 0.11, colors.ivory, 0.98)
   fillRoundedRect(buffer, renderSize, 0.235, 0.215, 0.53, 0.55, 0.092, colors.white, 0.55)
-  fillSoftCircle(buffer, renderSize, 0.33, 0.27, 0.18, colors.warmGlow, 0.1)
-  fillSoftCircle(buffer, renderSize, 0.67, 0.73, 0.14, colors.coolGlow, 0.08)
+  fillSoftCircle(buffer, renderSize, 0.42, 0.31, 0.16, colors.warmGlow, 0.1)
+  fillSoftCircle(buffer, renderSize, 0.61, 0.61, 0.18, colors.coolGlow, 0.08)
 
-  fillRoundedRect(buffer, renderSize, 0.33, 0.245, 0.34, 0.07, 0.03, colors.tealDark, 0.12)
-  fillRoundedRect(buffer, renderSize, 0.37, 0.265, 0.03, 0.03, 0.012, colors.tealDark, 0.34)
-  fillRoundedRect(buffer, renderSize, 0.43, 0.265, 0.03, 0.03, 0.012, colors.tealDark, 0.24)
-  fillRoundedRect(buffer, renderSize, 0.49, 0.265, 0.03, 0.03, 0.012, colors.tealDark, 0.18)
+  fillRoundedRect(buffer, renderSize, 0.33, 0.245, 0.25, 0.07, 0.03, colors.tealDark, 0.12)
 
-  fillCapsule(buffer, renderSize, 0.395, 0.34, 0.395, 0.71, 0.035, colors.coolGlow, 0.18)
-  fillCapsule(buffer, renderSize, 0.395, 0.375, 0.66, 0.322, 0.032, colors.coolGlow, 0.15)
-  fillCapsule(buffer, renderSize, 0.395, 0.505, 0.62, 0.455, 0.03, colors.coolGlow, 0.12)
+  for (let index = 0; index < headerDots.length; index += 1) {
+    const dot = headerDots[index]
+    const opacity = headerDotOpacities[index] ?? headerDotOpacities.at(-1) ?? 0.18
 
-  fillCapsule(buffer, renderSize, 0.41, 0.35, 0.41, 0.71, 0.038, colors.ink, 0.12)
-  fillCapsule(buffer, renderSize, 0.41, 0.385, 0.675, 0.332, 0.035, colors.ink, 0.12)
-  fillCapsule(buffer, renderSize, 0.41, 0.515, 0.635, 0.462, 0.033, colors.ink, 0.12)
+    fillRoundedRect(
+      buffer,
+      renderSize,
+      dot.x - dot.r,
+      dot.y - dot.r,
+      dot.r * 2,
+      dot.r * 2,
+      dot.r,
+      colors.tealDark,
+      opacity,
+    )
+  }
 
-  fillCapsule(buffer, renderSize, 0.395, 0.335, 0.395, 0.705, 0.03, colors.teal, 1)
-  fillCapsule(buffer, renderSize, 0.395, 0.37, 0.655, 0.315, 0.027, colors.teal, 1)
-  fillCapsule(buffer, renderSize, 0.395, 0.5, 0.615, 0.45, 0.025, colors.teal, 1)
+  fillRoundedRect(buffer, renderSize, 0.62, 0.238, 0.09, 0.07, 0.026, colors.warmGlow, 0.38)
+  fillSoftCircle(buffer, renderSize, 0.665, 0.273, 0.038, colors.white, 0.22)
 
-  fillRoundedRect(buffer, renderSize, 0.31, 0.7, 0.08, 0.05, 0.018, colors.ivoryShade, 0.7)
-  fillRoundedRect(buffer, renderSize, 0.41, 0.7, 0.08, 0.05, 0.018, colors.ivoryShade, 0.7)
-  fillRoundedRect(buffer, renderSize, 0.51, 0.7, 0.08, 0.05, 0.018, colors.ivoryShade, 0.7)
-  fillRoundedRect(buffer, renderSize, 0.61, 0.7, 0.08, 0.05, 0.018, colors.ivoryShade, 0.7)
-  fillRoundedRect(buffer, renderSize, 0.645, 0.205, 0.07, 0.07, 0.026, colors.warmGlow, 0.38)
-  fillSoftCircle(buffer, renderSize, 0.68, 0.24, 0.042, colors.white, 0.25)
+  for (let index = 0; index < sideCells.length; index += 1) {
+    const cell = sideCells[index]
+    const opacity = sideCellOpacities[index % sideCellOpacities.length]
+
+    fillRoundedRect(buffer, renderSize, cell.x, cell.y, cell.w, cell.h, cell.r, colors.ivoryShade, opacity)
+  }
+
+  fillSoftCircle(buffer, renderSize, 0.52, 0.48, 0.19, colors.warmGlow, 0.08)
+  fillSoftCircle(buffer, renderSize, 0.53, 0.54, 0.2, colors.coolGlow, 0.08)
+
+  fillPolyline(buffer, renderSize, offsetPoints(sigmaStrokePoints, -0.01, -0.006), 0.05, colors.coolGlow, 0.24)
+  fillPolyline(buffer, renderSize, offsetPoints(sigmaStrokePoints, 0.008, 0.01), 0.052, colors.ink, 0.14)
+  fillPolyline(buffer, renderSize, sigmaStrokePoints, 0.036, colors.tealDark, 1)
+  fillPolyline(buffer, renderSize, offsetPoints(sigmaStrokePoints, -0.003, -0.006), 0.014, colors.teal, 0.45)
+
+  for (let index = 0; index < footerCells.length; index += 1) {
+    const cell = footerCells[index]
+    const opacity = 0.76 - index * 0.02
+
+    fillRoundedRect(buffer, renderSize, cell.x, cell.y, cell.w, cell.h, cell.r, colors.ivoryShade, opacity)
+  }
 
   return downsampleBox(buffer, renderSize, renderSize, supersample)
 }
@@ -341,7 +426,125 @@ const resizeBilinear = (source, sourceWidth, sourceHeight, targetWidth, targetHe
   return target
 }
 
-const svgIcon = `
+const svgCanvasSize = 512
+
+const toSvgPixels = (value) => Number.parseFloat((value * svgCanvasSize).toFixed(3)).toString()
+
+const svgAttributes = (attributes) =>
+  Object.entries(attributes)
+    .filter(([, value]) => value !== undefined && value !== null)
+    .map(([key, value]) => ` ${key}="${value}"`)
+    .join('')
+
+const svgRect = ({ x, y, w, h, r, ...attributes }) =>
+  `  <rect x="${toSvgPixels(x)}" y="${toSvgPixels(y)}" width="${toSvgPixels(w)}" height="${toSvgPixels(h)}" rx="${toSvgPixels(r)}"${svgAttributes(attributes)} />`
+
+const svgCircle = ({ cx, cy, r, ...attributes }) =>
+  `  <circle cx="${toSvgPixels(cx)}" cy="${toSvgPixels(cy)}" r="${toSvgPixels(r)}"${svgAttributes(attributes)} />`
+
+const svgPolyline = (points, attributes) => {
+  const d = points
+    .map(({ x, y }, index) => `${index === 0 ? 'M' : 'L'} ${toSvgPixels(x)} ${toSvgPixels(y)}`)
+    .join(' ')
+
+  return `  <path d="${d}"${svgAttributes(attributes)} />`
+}
+
+const buildSvgIcon = () => {
+  const orbitTileMarkup = orbitTiles.flatMap((tile) => {
+    const dotSize = Math.min(tile.w, tile.h) * 0.19
+    const dotRadius = dotSize * 0.45
+
+    return [
+      svgRect({ x: tile.x, y: tile.y, w: tile.w, h: tile.h, r: tile.r, fill: '#fff', 'fill-opacity': 0.1 }),
+      ...orbitTileDotOffsets.map((dotOffset) =>
+        svgRect({
+          x: tile.x + tile.w * dotOffset.x - dotSize / 2,
+          y: tile.y + tile.h * dotOffset.y - dotSize / 2,
+          w: dotSize,
+          h: dotSize,
+          r: dotRadius,
+          fill: '#fff',
+          'fill-opacity': 0.14,
+        }),
+      ),
+    ]
+  }).join('\n')
+
+  const headerDotMarkup = headerDots
+    .map((dot, index) =>
+      svgRect({
+        x: dot.x - dot.r,
+        y: dot.y - dot.r,
+        w: dot.r * 2,
+        h: dot.r * 2,
+        r: dot.r,
+        fill: '#084f4a',
+        'fill-opacity': headerDotOpacities[index] ?? headerDotOpacities.at(-1) ?? 0.18,
+      }),
+    )
+    .join('\n')
+
+  const sideCellMarkup = sideCells
+    .map((cell, index) =>
+      svgRect({
+        x: cell.x,
+        y: cell.y,
+        w: cell.w,
+        h: cell.h,
+        r: cell.r,
+        fill: '#eef0ea',
+        'fill-opacity': sideCellOpacities[index % sideCellOpacities.length],
+      }),
+    )
+    .join('\n')
+
+  const footerCellMarkup = footerCells
+    .map((cell, index) =>
+      svgRect({
+        x: cell.x,
+        y: cell.y,
+        w: cell.w,
+        h: cell.h,
+        r: cell.r,
+        fill: '#eef0ea',
+        'fill-opacity': 0.76 - index * 0.02,
+      }),
+    )
+    .join('\n')
+
+  const sigmaGlow = svgPolyline(offsetPoints(sigmaStrokePoints, -0.01, -0.006), {
+    stroke: '#a6e3e0',
+    'stroke-width': toSvgPixels(0.05),
+    'stroke-linecap': 'round',
+    'stroke-linejoin': 'round',
+    'stroke-opacity': 0.24,
+  })
+
+  const sigmaShadow = svgPolyline(offsetPoints(sigmaStrokePoints, 0.008, 0.01), {
+    stroke: '#18222f',
+    'stroke-width': toSvgPixels(0.052),
+    'stroke-linecap': 'round',
+    'stroke-linejoin': 'round',
+    'stroke-opacity': 0.14,
+  })
+
+  const sigmaMain = svgPolyline(sigmaStrokePoints, {
+    stroke: '#084f4a',
+    'stroke-width': toSvgPixels(0.036),
+    'stroke-linecap': 'round',
+    'stroke-linejoin': 'round',
+  })
+
+  const sigmaHighlight = svgPolyline(offsetPoints(sigmaStrokePoints, -0.003, -0.006), {
+    stroke: '#0d6f68',
+    'stroke-width': toSvgPixels(0.014),
+    'stroke-linecap': 'round',
+    'stroke-linejoin': 'round',
+    'stroke-opacity': 0.45,
+  })
+
+  return `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
   <defs>
     <linearGradient id="bg" x1="80" y1="64" x2="408" y2="456" gradientUnits="userSpaceOnUse">
@@ -360,47 +563,30 @@ const svgIcon = `
   <rect width="512" height="512" rx="112" fill="url(#bg)" />
   <rect width="512" height="512" rx="112" fill="url(#warm)" />
   <rect width="512" height="512" rx="112" fill="url(#cool)" />
-  <g opacity="0.12" fill="#fff">
-    <rect x="46" y="78" width="64" height="64" rx="16" />
-    <rect x="64" y="184" width="52" height="52" rx="14" />
-    <rect x="72" y="294" width="56" height="56" rx="15" />
-    <rect x="402" y="72" width="60" height="60" rx="15" />
-    <rect x="378" y="300" width="70" height="70" rx="18" />
-  </g>
-  <g opacity="0.14" fill="#fff">
-    <rect x="60" y="96" width="12" height="28" rx="5" />
-    <rect x="82" y="104" width="18" height="8" rx="4" />
-    <rect x="82" y="118" width="14" height="8" rx="4" />
-    <rect x="79" y="199" width="10" height="24" rx="4" />
-    <rect x="96" y="206" width="12" height="7" rx="3.5" />
-    <rect x="94" y="219" width="10" height="7" rx="3.5" />
-    <rect x="89" y="312" width="10" height="26" rx="4" />
-    <rect x="106" y="320" width="13" height="7" rx="3.5" />
-    <rect x="104" y="333" width="10" height="7" rx="3.5" />
-    <rect x="417" y="87" width="11" height="26" rx="4" />
-    <rect x="436" y="95" width="16" height="8" rx="4" />
-    <rect x="435" y="108" width="13" height="8" rx="4" />
-    <rect x="395" y="319" width="12" height="32" rx="4.5" />
-    <rect x="416" y="329" width="18" height="8" rx="4" />
-    <rect x="414" y="344" width="14" height="8" rx="4" />
-  </g>
-  <rect x="116" y="112" width="280" height="294" rx="56" fill="#112836" fill-opacity="0.12" />
-  <rect x="112" y="102" width="288" height="298" rx="58" fill="#faf8f1" />
-  <rect x="120" y="110" width="272" height="282" rx="48" fill="#fff" fill-opacity="0.55" />
-  <rect x="170" y="124" width="172" height="36" rx="15" fill="#084f4a" fill-opacity="0.12" />
-  <rect x="189" y="134" width="15" height="15" rx="6" fill="#084f4a" fill-opacity="0.34" />
-  <rect x="220" y="134" width="15" height="15" rx="6" fill="#084f4a" fill-opacity="0.24" />
-  <rect x="251" y="134" width="15" height="15" rx="6" fill="#084f4a" fill-opacity="0.18" />
-  <path d="M202 181v194M202 199l136-29M202 267l116-26" stroke="#1b3a3a" stroke-width="38" stroke-linecap="round" stroke-opacity="0.12" />
-  <path d="M198 173v192M198 192l138-29M198 260l118-26" stroke="#0d6f68" stroke-width="31" stroke-linecap="round" />
-  <rect x="158" y="358" width="39" height="24" rx="9" fill="#eef0ea" />
-  <rect x="207" y="358" width="39" height="24" rx="9" fill="#eef0ea" />
-  <rect x="256" y="358" width="39" height="24" rx="9" fill="#eef0ea" />
-  <rect x="305" y="358" width="39" height="24" rx="9" fill="#eef0ea" />
-  <rect x="330" y="104" width="34" height="34" rx="13" fill="#ffe8b2" fill-opacity="0.38" />
-  <circle cx="347" cy="121" r="10" fill="#fff" fill-opacity="0.25" />
+${orbitTileMarkup}
+${svgRect({ x: 0.23, y: 0.235, w: 0.54, h: 0.56, r: 0.102, fill: '#112836', 'fill-opacity': 0.08 })}
+${svgRect({ x: 0.225, y: 0.22, w: 0.55, h: 0.58, r: 0.108, fill: '#112836', 'fill-opacity': 0.04 })}
+${svgRect({ x: 0.22, y: 0.2, w: 0.56, h: 0.58, r: 0.11, fill: '#faf8f1' })}
+${svgRect({ x: 0.235, y: 0.215, w: 0.53, h: 0.55, r: 0.092, fill: '#fff', 'fill-opacity': 0.55 })}
+${svgCircle({ cx: 0.42, cy: 0.31, r: 0.16, fill: '#ffe8b2', 'fill-opacity': 0.1 })}
+${svgCircle({ cx: 0.61, cy: 0.61, r: 0.18, fill: '#a6e3e0', 'fill-opacity': 0.08 })}
+${svgRect({ x: 0.33, y: 0.245, w: 0.25, h: 0.07, r: 0.03, fill: '#084f4a', 'fill-opacity': 0.12 })}
+${headerDotMarkup}
+${svgRect({ x: 0.62, y: 0.238, w: 0.09, h: 0.07, r: 0.026, fill: '#ffe8b2', 'fill-opacity': 0.38 })}
+${svgCircle({ cx: 0.665, cy: 0.273, r: 0.038, fill: '#fff', 'fill-opacity': 0.22 })}
+${sideCellMarkup}
+${svgCircle({ cx: 0.52, cy: 0.48, r: 0.19, fill: '#ffe8b2', 'fill-opacity': 0.08 })}
+${svgCircle({ cx: 0.53, cy: 0.54, r: 0.2, fill: '#a6e3e0', 'fill-opacity': 0.08 })}
+${sigmaGlow}
+${sigmaShadow}
+${sigmaMain}
+${sigmaHighlight}
+${footerCellMarkup}
 </svg>
 `.trimStart()
+}
+
+const svgIcon = buildSvgIcon()
 
 mkdirSync(iconsDir, { recursive: true })
 
