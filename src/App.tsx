@@ -3,12 +3,14 @@ import { AppHeader } from './components/AppHeader'
 import { DetailPanel } from './components/DetailPanel'
 import { FeaturedSetsPanel } from './components/FeaturedSetsPanel'
 import { InstallPanel } from './components/InstallPanel'
+import { PinnedItemsPanel } from './components/PinnedItemsPanel'
 import { ResultsPanel } from './components/ResultsPanel'
 import { SearchPanel } from './components/SearchPanel'
 import { useAppViewModel } from './hooks/useAppViewModel'
 
 export default function App() {
-  const { detailPanel, featuredSetsPanel, header, resultsPanel, searchPanel } = useAppViewModel()
+  const { detailPanel, featuredSetsPanel, header, pinnedPanel, resultsPanel, searchPanel } =
+    useAppViewModel()
 
   return (
     <div className="app-shell">
@@ -22,11 +24,18 @@ export default function App() {
       <SearchPanel {...searchPanel} />
 
       <main className="workspace">
-        <FeaturedSetsPanel {...featuredSetsPanel} />
+        <div className="side-rail">
+          <PinnedItemsPanel {...pinnedPanel} />
+          <FeaturedSetsPanel {...featuredSetsPanel} />
+        </div>
 
         <ResultsPanel model={resultsPanel.model} />
 
-        <DetailPanel selectedDetailRecord={detailPanel.selectedDetailRecord} />
+        <DetailPanel
+          isPinned={detailPanel.isPinned}
+          onTogglePinned={detailPanel.onTogglePinned}
+          selectedDetailRecord={detailPanel.selectedDetailRecord}
+        />
       </main>
 
       <AppFooter />

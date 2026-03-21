@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState } from 'react'
-import { useDebouncedValue } from './useDebouncedValue'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+
+const QUERY_DEBOUNCE_MS = 500
 
 type UseSearchControlsResult = {
   activeSet: string | undefined
@@ -14,8 +15,22 @@ type UseSearchControlsResult = {
 
 export function useSearchControls(): UseSearchControlsResult {
   const [queryInput, setQueryInput] = useState('')
+  const [query, setQuery] = useState('')
   const [activeSet, setActiveSet] = useState<string | undefined>()
-  const query = useDebouncedValue(queryInput, 500)
+
+  useEffect(() => {
+    if (queryInput === query) {
+      return
+    }
+
+    const timeout = window.setTimeout(() => {
+      setQuery(queryInput)
+    }, QUERY_DEBOUNCE_MS)
+
+    return () => {
+      window.clearTimeout(timeout)
+    }
+  }, [query, queryInput])
 
   const hasQuery = query.length > 0
   const searchStatusText = useMemo(
@@ -26,6 +41,7 @@ export function useSearchControls(): UseSearchControlsResult {
 
   const resetSearch = useCallback((): void => {
     setQueryInput('')
+    setQuery('')
     setActiveSet(undefined)
   }, [])
 

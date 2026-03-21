@@ -38,7 +38,7 @@ export function useUnicodeData(): UseUnicodeDataResult {
 
         setSearchIndex(searchRecords)
         setBlockIndex(blockEntries)
-        setSelectedCp(searchRecords[0]?.cp ?? null)
+        setSelectedCp((current) => current ?? searchRecords[0]?.cp ?? null)
       })
       .catch((error: unknown) => {
         if (isCancelled) {

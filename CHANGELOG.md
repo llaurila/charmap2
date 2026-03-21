@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project currently uses date-based release notes alongside the project version.
 
+## [Unreleased]
+
+### Added
+
+- Added browser-persistent pinned characters with a new left-rail pinned panel and detail-panel pin toggle.
+
+### Changed
+
+- Clicking a pinned character now clears the active search and featured-set filter before restoring its detail view.
+- Preserved pinned selections outside the current search index while loaded Unicode data hydrates in the background.
+
 ## [0.1.1] - 2026-03-20
 
 Small polish release for the initial public build.

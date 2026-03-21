@@ -104,11 +104,8 @@ describe('useSearchControls', () => {
     })
 
     expect(getLatestValue().queryInput).toBe('')
-    expect(getLatestValue().activeSet).toBeUndefined()
-
-    advanceDebounce(500)
-
     expect(getLatestValue().query).toBe('')
     expect(getLatestValue().hasQuery).toBe(false)
+    expect(getLatestValue().activeSet).toBeUndefined()
   })
 })

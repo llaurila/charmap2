@@ -12,6 +12,7 @@ import { getSelectedDetailRecord, getSelectedSearchRecord } from '../utils/selec
 type UseCharacterSearchResultsOptions = {
   activeSet: string | undefined
   blockIndex: BlockIndexEntry[]
+  detachedSelectionRecord: SearchRecord | null
   hasQuery: boolean
   loadedBlocks: LoadedBlocks
   loadBlock: (block: BlockIndexEntry | undefined) => void
@@ -33,6 +34,7 @@ type UseCharacterSearchResultsResult = {
 export function useCharacterSearchResults({
   activeSet,
   blockIndex,
+  detachedSelectionRecord,
   hasQuery,
   loadedBlocks,
   loadBlock,
@@ -45,6 +47,15 @@ export function useCharacterSearchResults({
     () => searchCharacters(searchIndex, query, activeSet),
     [activeSet, query, searchIndex],
   )
+  const hasDetachedSelection = useMemo(
+    () =>
+      !hasQuery &&
+      activeSet === undefined &&
+      selectedCp !== null &&
+      detachedSelectionRecord?.cp === selectedCp &&
+      !results.some((record) => record.cp === selectedCp),
+    [activeSet, detachedSelectionRecord, hasQuery, results, selectedCp],
+  )
 
   useEffect(() => {
     if (results.length === 0) {
@@ -54,14 +65,17 @@ export function useCharacterSearchResults({
     const currentSelectionExists =
       selectedCp !== null && results.some((record) => record.cp === selectedCp)
 
-    if (!currentSelectionExists) {
+    if (!currentSelectionExists && !hasDetachedSelection) {
       setSelectedCp(results[0]?.cp ?? null)
     }
-  }, [results, selectedCp, setSelectedCp])
+  }, [hasDetachedSelection, results, selectedCp, setSelectedCp])
 
   const selectedSearchRecord = useMemo(
-    () => getSelectedSearchRecord(results, searchIndex, selectedCp, hasQuery),
-    [hasQuery, results, searchIndex, selectedCp],
+    () =>
+      hasDetachedSelection
+        ? detachedSelectionRecord
+        : getSelectedSearchRecord(results, searchIndex, selectedCp, hasQuery),
+    [detachedSelectionRecord, hasDetachedSelection, hasQuery, results, searchIndex, selectedCp],
   )
   const directLookupCp = useMemo(() => getSingleCodePointQuery(query), [query])
   const directLookupBlock = useMemo(

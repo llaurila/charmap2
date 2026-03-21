@@ -31,6 +31,8 @@ const getDetailDescription = (record: ResultRecord): string => {
 }
 
 type DetailPanelProps = {
+  isPinned: boolean
+  onTogglePinned: () => void
   selectedDetailRecord: ResultRecord | null
 }
 
@@ -87,12 +89,16 @@ function DetailMetadata({ record }: { record: ResultRecord }) {
 function DetailPanelContent({
   copiedLabel,
   copyFormats,
+  isPinned,
   onCopyFormat,
+  onTogglePinned,
   selectedDetailRecord,
 }: {
   copiedLabel: string | null
   copyFormats: CopyFormat[]
+  isPinned: boolean
   onCopyFormat: (entry: CopyFormat) => Promise<void>
+  onTogglePinned: () => void
   selectedDetailRecord: ResultRecord
 }) {
   return (
@@ -101,9 +107,20 @@ function DetailPanelContent({
         <div className={`detail-glyph kind-${selectedDetailRecord.kind}`}>
           {getPrimaryGlyph(selectedDetailRecord)}
         </div>
-        <div>
+        <div className="detail-copy">
           <p className="detail-caption">{getGlyphCaption(selectedDetailRecord)}</p>
-          <h2>{selectedDetailRecord.name}</h2>
+          <div className="detail-title-row">
+            <h2>{selectedDetailRecord.name}</h2>
+            <button
+              type="button"
+              className={isPinned ? 'ghost-button pin-button is-active' : 'ghost-button pin-button'}
+              aria-pressed={isPinned}
+              aria-label={`${isPinned ? 'Unpin' : 'Pin'} ${selectedDetailRecord.name}`}
+              onClick={onTogglePinned}
+            >
+              {isPinned ? 'Unpin' : 'Pin'}
+            </button>
+          </div>
           <p className="detail-description">{getDetailDescription(selectedDetailRecord)}</p>
         </div>
       </div>
@@ -144,6 +161,8 @@ function DetailPanelContent({
 }
 
 export function DetailPanel({
+  isPinned,
+  onTogglePinned,
   selectedDetailRecord,
 }: DetailPanelProps) {
   const { announceMessage, copiedLabel, copyFormats, handleCopyFormat } =
@@ -158,7 +177,9 @@ export function DetailPanel({
         <DetailPanelContent
           copiedLabel={copiedLabel}
           copyFormats={copyFormats}
+          isPinned={isPinned}
           onCopyFormat={handleCopyFormat}
+          onTogglePinned={onTogglePinned}
           selectedDetailRecord={selectedDetailRecord}
         />
       ) : (

@@ -3,6 +3,7 @@
 import { act } from 'react'
 import ReactDOM from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { PINNED_STORAGE_KEY } from './hooks/usePinnedCharacters'
 
 vi.mock('./hooks/useInstallPrompt', () => ({
   useInstallPrompt: () => ({
@@ -97,6 +98,7 @@ describe('App', () => {
 
   beforeEach(() => {
     vi.useFakeTimers()
+    window.localStorage.clear()
     container = document.createElement('div')
     document.body.appendChild(container)
     root = ReactDOM.createRoot(container)
@@ -107,6 +109,7 @@ describe('App', () => {
       root.unmount()
     })
     container.remove()
+    window.localStorage.clear()
     vi.useRealTimers()
   })
 
@@ -154,4 +157,80 @@ describe('App', () => {
     expect(container.querySelector('.detail-panel h2')?.textContent).toBe('ZERO WIDTH JOINER')
     expect(container.textContent).toContain('Exact code point lookup')
   })
+
+  it(
+    'pins characters, clears search when reselected, and restores them after remount',
+    async () => {
+      await act(async () => {
+        root.render(<App />)
+        await Promise.resolve()
+      })
+
+      const input = container.querySelector('input[type="search"]')
+
+      expect(input).toBeInstanceOf(HTMLInputElement)
+
+      await act(async () => {
+        setInputValue(input as HTMLInputElement, 'arrow')
+        await Promise.resolve()
+      })
+
+      await act(async () => {
+        vi.advanceTimersByTime(500)
+        await Promise.resolve()
+      })
+
+      expect(container.querySelector('.detail-panel h2')?.textContent).toBe('RIGHTWARDS ARROW')
+
+      await act(async () => {
+        container
+          .querySelector('button[aria-label="Pin RIGHTWARDS ARROW"]')
+          ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+        await Promise.resolve()
+      })
+
+      expect(
+        container.querySelector('button[aria-label="Show details for RIGHTWARDS ARROW"]'),
+      ).toBeInstanceOf(HTMLButtonElement)
+      expect(window.localStorage.getItem(PINNED_STORAGE_KEY)).toContain('RIGHTWARDS ARROW')
+
+      await act(async () => {
+        setInputValue(input as HTMLInputElement, 'quote')
+        await Promise.resolve()
+      })
+
+      await act(async () => {
+        vi.advanceTimersByTime(500)
+        await Promise.resolve()
+      })
+
+      expect((input as HTMLInputElement).value).toBe('quote')
+      expect(container.querySelector('.detail-panel h2')?.textContent).not.toBe('RIGHTWARDS ARROW')
+
+      await act(async () => {
+        container
+          .querySelector('button[aria-label="Show details for RIGHTWARDS ARROW"]')
+          ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+        await Promise.resolve()
+      })
+
+      expect((input as HTMLInputElement).value).toBe('')
+      expect(container.querySelector('.detail-panel h2')?.textContent).toBe('RIGHTWARDS ARROW')
+
+      await act(async () => {
+        root.unmount()
+      })
+
+      root = ReactDOM.createRoot(container)
+
+      await act(async () => {
+        root.render(<App />)
+        await Promise.resolve()
+      })
+
+      expect(
+        container.querySelector('button[aria-label="Show details for RIGHTWARDS ARROW"]'),
+      ).toBeInstanceOf(HTMLButtonElement)
+    },
+  )
 })

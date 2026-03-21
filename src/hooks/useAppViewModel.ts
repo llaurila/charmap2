@@ -1,8 +1,9 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { featuredSets } from '../data/featuredSets'
-import type { ResultRecord } from '../types/unicode'
+import type { ResultRecord, SearchRecord } from '../types/unicode'
 import { useCharacterSearchResults } from './useCharacterSearchResults'
+import { usePinnedCharacters } from './usePinnedCharacters'
 import { useResultsPanelViewModel } from './useResultsPanelViewModel'
 import type { ResultsPanelViewModel } from './useResultsPanelViewModel'
 import { useSearchControls } from './useSearchControls'
@@ -16,6 +17,8 @@ export type FeaturedSetItem = {
 
 type AppViewModel = {
   detailPanel: {
+    isPinned: boolean
+    onTogglePinned: () => void
     selectedDetailRecord: ResultRecord | null
   }
   featuredSetsPanel: {
@@ -28,6 +31,11 @@ type AppViewModel = {
   header: {
     blockCount: number
     indexedCharacterCount: number
+  }
+  pinnedPanel: {
+    items: ResultRecord[]
+    onSelectPinned: (cp: number) => void
+    selectedCp: number | null
   }
   resultsPanel: {
     model: ResultsPanelViewModel
@@ -52,6 +60,7 @@ export function useAppViewModel(): AppViewModel {
     setActiveSet,
     setQueryInput,
   } = useSearchControls()
+  const { isPinned, pinnedRecords, togglePinned } = usePinnedCharacters()
   const {
     blockIndex,
     isReady,
@@ -62,6 +71,28 @@ export function useAppViewModel(): AppViewModel {
     selectedCp,
     setSelectedCp,
   } = useUnicodeData()
+  const searchIndexByCp = useMemo(
+    () => new Map<number, SearchRecord>(searchIndex.map((record) => [record.cp, record])),
+    [searchIndex],
+  )
+  const loadedRecordsByCp = useMemo(() => {
+    const map = new Map<number, ResultRecord>()
+
+    for (const records of Object.values(loadedBlocks)) {
+      for (const record of records) {
+        map.set(record.cp, record)
+      }
+    }
+
+    return map
+  }, [loadedBlocks])
+  const selectedPinnedRecord = useMemo(
+    () =>
+      selectedCp !== null
+        ? pinnedRecords.find((record) => record.cp === selectedCp) ?? null
+        : null,
+    [pinnedRecords, selectedCp],
+  )
   const {
     directLookupCp,
     displayResults,
@@ -72,6 +103,7 @@ export function useAppViewModel(): AppViewModel {
   } = useCharacterSearchResults({
     activeSet,
     blockIndex,
+    detachedSelectionRecord: selectedPinnedRecord,
     hasQuery,
     loadedBlocks,
     loadBlock,
@@ -81,6 +113,13 @@ export function useAppViewModel(): AppViewModel {
     setSelectedCp,
   })
   const selectedDetailCp = selectedDetailRecord?.cp ?? null
+  const selectedResultsCp = useMemo(
+    () =>
+      selectedDetailCp !== null && displayResults.some((record) => record.cp === selectedDetailCp)
+        ? selectedDetailCp
+        : null,
+    [displayResults, selectedDetailCp],
+  )
   const { panel: resultsModel, selectFirstResult } = useResultsPanelViewModel({
     activeSet,
     displayResults,
@@ -92,9 +131,30 @@ export function useAppViewModel(): AppViewModel {
     query,
     resultsCount: results.length,
     searchStatusText,
-    selectedCp: selectedDetailCp,
+    selectedCp: selectedResultsCp,
     setSelectedCp,
   })
+  const pinnedItems = useMemo(
+    () =>
+      pinnedRecords.map(
+        (record) => loadedRecordsByCp.get(record.cp) ?? searchIndexByCp.get(record.cp) ?? record,
+      ),
+    [loadedRecordsByCp, pinnedRecords, searchIndexByCp],
+  )
+  const selectPinnedCharacter = useCallback(
+    (cp: number): void => {
+      resetSearch()
+      setSelectedCp(cp)
+    },
+    [resetSearch, setSelectedCp],
+  )
+  const togglePinnedSelection = useCallback((): void => {
+    if (!selectedDetailRecord) {
+      return
+    }
+
+    togglePinned(selectedDetailRecord)
+  }, [selectedDetailRecord, togglePinned])
 
   const featuredSetItems = useMemo(() => {
     const countsById = new Map<string, number>()
@@ -114,6 +174,8 @@ export function useAppViewModel(): AppViewModel {
 
   return {
     detailPanel: {
+      isPinned: selectedDetailCp !== null ? isPinned(selectedDetailCp) : false,
+      onTogglePinned: togglePinnedSelection,
       selectedDetailRecord,
     },
     featuredSetsPanel: {
@@ -126,6 +188,11 @@ export function useAppViewModel(): AppViewModel {
     header: {
       blockCount: blockIndex.length,
       indexedCharacterCount: searchIndex.length,
+    },
+    pinnedPanel: {
+      items: pinnedItems,
+      onSelectPinned: selectPinnedCharacter,
+      selectedCp,
     },
     resultsPanel: {
       model: resultsModel,
