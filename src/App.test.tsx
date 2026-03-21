@@ -3,6 +3,7 @@
 import { act } from 'react'
 import ReactDOM from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { APP_VERSION } from './constants/app'
 import { PINNED_STORAGE_KEY } from './hooks/usePinnedCharacters'
 
 vi.mock('./hooks/useInstallPrompt', () => ({
@@ -156,6 +157,7 @@ describe('App', () => {
 
     expect(container.querySelector('.detail-panel h2')?.textContent).toBe('ZERO WIDTH JOINER')
     expect(container.textContent).toContain('Exact code point lookup')
+    expect(container.textContent).toContain(`Charmap2 v${APP_VERSION}`)
   })
 
   it(
