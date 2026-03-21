@@ -38,7 +38,9 @@ const scrollDetailPanelIntoView = (): void => {
 
   const pinnedPanel = document.querySelector<HTMLElement>('.pinned-panel')
   const detailPanelTop = window.scrollY + detailPanel.getBoundingClientRect().top
-  const stickyOffset = pinnedPanel ? Math.max(0, pinnedPanel.getBoundingClientRect().bottom + 12) : 0
+  const stickyOffset = pinnedPanel
+    ? Math.max(0, pinnedPanel.getBoundingClientRect().bottom + 12)
+    : 0
 
   window.scrollTo({
     top: Math.max(0, detailPanelTop - stickyOffset),

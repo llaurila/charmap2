@@ -42,7 +42,11 @@ export function PinnedItemsPanel({
   }
 
   return (
-    <aside className={isExpanded ? 'panel side-panel pinned-panel is-expanded' : 'panel side-panel pinned-panel'}>
+    <aside
+      className={
+        isExpanded ? 'panel side-panel pinned-panel is-expanded' : 'panel side-panel pinned-panel'
+      }
+    >
       <div className="panel-heading pinned-panel__heading">
         <div className="pinned-panel__title-row">
           <h2>Pinned</h2>

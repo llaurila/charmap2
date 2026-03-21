@@ -6,7 +6,9 @@ The format is based on Keep a Changelog, and this project currently uses date-ba
 
 ## [Unreleased]
 
-Improves how installed and open app sessions notice newly deployed builds without depending on the GitHub API.
+## [0.2.0] - 2026-03-21
+
+Improves deployed update checks and introduces a mobile-optimized UI for searching and inspecting characters on phones.
 
 ### Added
 
