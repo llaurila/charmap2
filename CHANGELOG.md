@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project currently uses date-ba
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-03-21
+
+Adds browser-persistent pinned characters and smooths how pinned selections restore across searches and background Unicode hydration.
+
 ### Added
 
 - Added browser-persistent pinned characters with a new left-rail pinned panel and detail-panel pin toggle.

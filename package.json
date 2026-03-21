@@ -1,7 +1,7 @@
 {
   "name": "charmap2",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A static Unicode character map for searching, inspecting, and copying Unicode characters.",
   "license": "MIT",
   "type": "module",
