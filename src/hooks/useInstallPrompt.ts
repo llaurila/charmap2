@@ -3,6 +3,7 @@ import { getInstallSurface, isInstalledDisplayMode } from '../utils/install'
 
 type UseInstallPromptResult = {
   deferredInstallPrompt: BeforeInstallPromptEvent | null
+  dismissInstallPanel: () => void
   handleInstallClick: () => Promise<void>
   installSurface: ReturnType<typeof getInstallSurface>
   shouldShowInstallPanel: boolean
@@ -19,6 +20,7 @@ export function useInstallPrompt(): UseInstallPromptResult {
   const [deferredInstallPrompt, setDeferredInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null)
   const [isInstalled, setIsInstalled] = useState(getInstalledState)
+  const [isDismissed, setIsDismissed] = useState(false)
   const installSurface = useMemo(
     () =>
       getInstallSurface({
@@ -68,6 +70,10 @@ export function useInstallPrompt(): UseInstallPromptResult {
     }
   }, [])
 
+  const dismissInstallPanel = useCallback((): void => {
+    setIsDismissed(true)
+  }, [])
+
   const handleInstallClick = useCallback(async (): Promise<void> => {
     if (!deferredInstallPrompt) {
       return
@@ -85,9 +91,12 @@ export function useInstallPrompt(): UseInstallPromptResult {
 
   return {
     deferredInstallPrompt,
+    dismissInstallPanel,
     handleInstallClick,
     installSurface,
     shouldShowInstallPanel:
-      !isInstalled && (installSurface !== 'chromium' || deferredInstallPrompt !== null),
+      !isDismissed &&
+      !isInstalled &&
+      (installSurface !== 'chromium' || deferredInstallPrompt !== null),
   }
 }

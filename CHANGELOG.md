@@ -16,6 +16,7 @@ Improves how installed and open app sessions notice newly deployed builds withou
 ### Changed
 
 - The app now compares the running build against deployed metadata on load, on an interval, and when the tab becomes visible again.
+- Improved the mobile UI with collapsible header and pinned panels, tighter search controls, and better mobile navigation to character details.
 
 ## [0.1.2] - 2026-03-21
 

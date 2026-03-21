@@ -28,8 +28,13 @@ const installCopy: Record<Exclude<InstallSurface, 'other'>, InstallCopy> = {
 }
 
 export function InstallPanel() {
-  const { deferredInstallPrompt, handleInstallClick, installSurface, shouldShowInstallPanel } =
-    useInstallPrompt()
+  const {
+    deferredInstallPrompt,
+    dismissInstallPanel,
+    handleInstallClick,
+    installSurface,
+    shouldShowInstallPanel,
+  } = useInstallPrompt()
 
   if (!shouldShowInstallPanel) {
     return null
@@ -47,6 +52,14 @@ export function InstallPanel() {
 
   return (
     <aside className="panel install-panel" aria-label="Install app">
+      <button
+        type="button"
+        className="ghost-button install-panel__dismiss"
+        onClick={dismissInstallPanel}
+        aria-label="Hide install panel"
+      >
+        <span aria-hidden="true">×</span>
+      </button>
       <div className="install-panel__header">
         <p className="eyebrow">Install</p>
         <h2>{copy.title}</h2>

@@ -33,10 +33,21 @@ export function SearchPanel({
           disabled={disabled}
           aria-describedby="search-status"
         />
+        {queryInput.length > 0 ? (
+          <button
+            type="button"
+            className="ghost-button search-reset-button"
+            onClick={onReset}
+            disabled={disabled}
+            aria-label="Reset search"
+          >
+            <span className="search-reset-button__label">Reset</span>
+            <span className="search-reset-button__icon" aria-hidden="true">
+              ×
+            </span>
+          </button>
+        ) : null}
       </label>
-      <button type="button" className="ghost-button" onClick={onReset} disabled={disabled}>
-        Reset
-      </button>
     </section>
   )
 }

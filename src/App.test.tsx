@@ -6,17 +6,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { APP_VERSION } from './constants/app'
 import { PINNED_STORAGE_KEY } from './hooks/usePinnedCharacters'
 
-const { useUpdateCheckMock } = vi.hoisted(() => ({
+const { useInstallPromptMock, useUpdateCheckMock } = vi.hoisted(() => ({
+  useInstallPromptMock: vi.fn(),
   useUpdateCheckMock: vi.fn(),
 }))
 
 vi.mock('./hooks/useInstallPrompt', () => ({
-  useInstallPrompt: () => ({
-    deferredInstallPrompt: null,
-    handleInstallClick: async () => {},
-    installSurface: 'other' as const,
-    shouldShowInstallPanel: false,
-  }),
+  useInstallPrompt: useInstallPromptMock,
 }))
 
 vi.mock('./hooks/useUpdateCheck', () => ({
@@ -107,6 +103,13 @@ describe('App', () => {
 
   beforeEach(() => {
     vi.useFakeTimers()
+    useInstallPromptMock.mockReturnValue({
+      deferredInstallPrompt: null,
+      dismissInstallPanel: vi.fn(),
+      handleInstallClick: async () => {},
+      installSurface: 'other' as const,
+      shouldShowInstallPanel: false,
+    })
     useUpdateCheckMock.mockReturnValue({
       acknowledgeUpdate: vi.fn(),
       currentBuildId: 'current-build',
@@ -128,6 +131,7 @@ describe('App', () => {
     })
     container.remove()
     window.localStorage.clear()
+    useInstallPromptMock.mockReset()
     useUpdateCheckMock.mockReset()
     vi.useRealTimers()
   })
@@ -293,5 +297,248 @@ describe('App', () => {
     })
 
     expect(acknowledgeUpdate).toHaveBeenCalledTimes(1)
+  })
+
+  it('collapses the header on mobile and expands it on demand', async () => {
+    await act(async () => {
+      root.render(<App />)
+      await Promise.resolve()
+    })
+
+    const hero = container.querySelector('.hero')
+    const toggle = container.querySelector('button[aria-label="Expand header"]')
+
+    expect(hero).toBeInstanceOf(HTMLElement)
+    expect(toggle).toBeInstanceOf(HTMLButtonElement)
+    expect(hero?.classList.contains('is-expanded')).toBe(false)
+    expect(toggle?.getAttribute('aria-expanded')).toBe('false')
+
+    await act(async () => {
+      toggle?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      await Promise.resolve()
+    })
+
+    expect(hero?.classList.contains('is-expanded')).toBe(true)
+    expect(toggle?.getAttribute('aria-expanded')).toBe('true')
+    expect(container.querySelector('button[aria-label="Collapse header"]')).toBe(toggle)
+  })
+
+  it('dismisses the install panel for the current session', async () => {
+    const dismissInstallPanel = vi.fn()
+
+    useInstallPromptMock.mockReturnValue({
+      deferredInstallPrompt: null,
+      dismissInstallPanel,
+      handleInstallClick: async () => {},
+      installSurface: 'ios' as const,
+      shouldShowInstallPanel: true,
+    })
+
+    await act(async () => {
+      root.render(<App />)
+      await Promise.resolve()
+    })
+
+    const dismissButton = container.querySelector('button[aria-label="Hide install panel"]')
+
+    expect(dismissButton).toBeInstanceOf(HTMLButtonElement)
+
+    await act(async () => {
+      dismissButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      await Promise.resolve()
+    })
+
+    expect(dismissInstallPanel).toHaveBeenCalledTimes(1)
+  })
+
+  it('scrolls to the detail panel when a pinned character is selected on mobile', async () => {
+    const scrollTo = vi.fn()
+
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: vi.fn((query: string) => ({
+        addEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+        matches: query === '(max-width: 840px)',
+        media: query,
+        onchange: null,
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+      })),
+    })
+
+    Object.defineProperty(window, 'scrollTo', {
+      configurable: true,
+      value: scrollTo,
+    })
+
+    const originalGetBoundingClientRect = Element.prototype.getBoundingClientRect
+
+    Element.prototype.getBoundingClientRect = function getBoundingClientRect() {
+      if ((this as Element).classList.contains('pinned-panel')) {
+        return {
+          bottom: 72,
+          height: 64,
+          left: 0,
+          right: 390,
+          top: 8,
+          width: 390,
+          x: 0,
+          y: 8,
+          toJSON: () => ({}),
+        }
+      }
+
+      if ((this as Element).classList.contains('detail-panel')) {
+        return {
+          bottom: 760,
+          height: 520,
+          left: 0,
+          right: 390,
+          top: 240,
+          width: 390,
+          x: 0,
+          y: 240,
+          toJSON: () => ({}),
+        }
+      }
+
+      return originalGetBoundingClientRect.call(this)
+    }
+
+    Object.defineProperty(window, 'scrollY', {
+      configurable: true,
+      value: 160,
+    })
+
+    await act(async () => {
+      root.render(<App />)
+      await Promise.resolve()
+    })
+
+    const selectedName = container.querySelector('.detail-panel h2')?.textContent ?? ''
+    const pinButton = container.querySelector(`button[aria-label="Pin ${selectedName}"]`)
+
+    expect(pinButton).toBeInstanceOf(HTMLButtonElement)
+
+    await act(async () => {
+      pinButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      await Promise.resolve()
+    })
+
+    const pinnedButton = container.querySelector(`button[aria-label="Show details for ${selectedName}"]`)
+
+    expect(pinnedButton).toBeInstanceOf(HTMLButtonElement)
+
+    await act(async () => {
+      pinnedButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      await Promise.resolve()
+    })
+
+    expect(scrollTo).toHaveBeenCalledWith({ behavior: 'smooth', top: 316 })
+
+    Element.prototype.getBoundingClientRect = originalGetBoundingClientRect
+  })
+
+  it('hides the pinned panel on mobile when there are no pinned characters', async () => {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: vi.fn((query: string) => ({
+        addEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+        matches: query === '(max-width: 840px)',
+        media: query,
+        onchange: null,
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+      })),
+    })
+
+    await act(async () => {
+      root.render(<App />)
+      await Promise.resolve()
+    })
+
+    expect(container.querySelector('.pinned-panel')).toBeNull()
+  })
+
+  it('scrolls to the detail panel when a search result is selected on mobile', async () => {
+    const scrollTo = vi.fn()
+
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: vi.fn((query: string) => ({
+        addEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+        matches: query === '(max-width: 840px)',
+        media: query,
+        onchange: null,
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+      })),
+    })
+
+    Object.defineProperty(window, 'scrollTo', {
+      configurable: true,
+      value: scrollTo,
+    })
+
+    const originalGetBoundingClientRect = Element.prototype.getBoundingClientRect
+
+    Element.prototype.getBoundingClientRect = function getBoundingClientRect() {
+      if ((this as Element).classList.contains('pinned-panel')) {
+        return {
+          bottom: 72,
+          height: 64,
+          left: 0,
+          right: 390,
+          top: 8,
+          width: 390,
+          x: 0,
+          y: 8,
+          toJSON: () => ({}),
+        }
+      }
+
+      if ((this as Element).classList.contains('detail-panel')) {
+        return {
+          bottom: 760,
+          height: 520,
+          left: 0,
+          right: 390,
+          top: 240,
+          width: 390,
+          x: 0,
+          y: 240,
+          toJSON: () => ({}),
+        }
+      }
+
+      return originalGetBoundingClientRect.call(this)
+    }
+
+    Object.defineProperty(window, 'scrollY', {
+      configurable: true,
+      value: 160,
+    })
+
+    await act(async () => {
+      root.render(<App />)
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      container
+        .querySelector('#result-8596')
+        ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      await Promise.resolve()
+    })
+
+    expect(scrollTo).toHaveBeenCalledWith({ behavior: 'smooth', top: 400 })
+
+    Element.prototype.getBoundingClientRect = originalGetBoundingClientRect
   })
 })
