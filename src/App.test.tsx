@@ -6,6 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { APP_VERSION } from './constants/app'
 import { PINNED_STORAGE_KEY } from './hooks/usePinnedCharacters'
 
+const { useUpdateCheckMock } = vi.hoisted(() => ({
+  useUpdateCheckMock: vi.fn(),
+}))
+
 vi.mock('./hooks/useInstallPrompt', () => ({
   useInstallPrompt: () => ({
     deferredInstallPrompt: null,
@@ -13,6 +17,10 @@ vi.mock('./hooks/useInstallPrompt', () => ({
     installSurface: 'other' as const,
     shouldShowInstallPanel: false,
   }),
+}))
+
+vi.mock('./hooks/useUpdateCheck', () => ({
+  useUpdateCheck: useUpdateCheckMock,
 }))
 
 vi.mock('./hooks/useResultsGrid', () => ({
@@ -99,6 +107,15 @@ describe('App', () => {
 
   beforeEach(() => {
     vi.useFakeTimers()
+    useUpdateCheckMock.mockReturnValue({
+      acknowledgeUpdate: vi.fn(),
+      currentBuildId: 'current-build',
+      currentVersion: APP_VERSION,
+      isUpdateAvailable: false,
+      latestBuildId: null,
+      latestVersion: null,
+      reloadToUpdate: vi.fn(),
+    })
     window.localStorage.clear()
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -111,6 +128,7 @@ describe('App', () => {
     })
     container.remove()
     window.localStorage.clear()
+    useUpdateCheckMock.mockReset()
     vi.useRealTimers()
   })
 
@@ -235,4 +253,45 @@ describe('App', () => {
       ).toBeInstanceOf(HTMLButtonElement)
     },
   )
+
+  it('shows a reload prompt when a newer build is available', async () => {
+    const acknowledgeUpdate = vi.fn()
+    const reloadToUpdate = vi.fn()
+
+    useUpdateCheckMock.mockReturnValue({
+      acknowledgeUpdate,
+      currentBuildId: 'current-build',
+      currentVersion: APP_VERSION,
+      isUpdateAvailable: true,
+      latestBuildId: 'next-build',
+      latestVersion: '0.1.3',
+      reloadToUpdate,
+    })
+
+    await act(async () => {
+      root.render(<App />)
+      await Promise.resolve()
+    })
+
+    expect(container.textContent).toContain('Reload to get the latest build')
+    expect(container.textContent).toContain(`swap from v${APP_VERSION} (current-build) to v0.1.3 (next-build)`)
+
+    await act(async () => {
+      Array.from(container.querySelectorAll('button'))
+        .find((button) => button.textContent === 'Reload now')
+        ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      await Promise.resolve()
+    })
+
+    expect(reloadToUpdate).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      Array.from(container.querySelectorAll('button'))
+        .find((button) => button.textContent === 'Dismiss')
+        ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      await Promise.resolve()
+    })
+
+    expect(acknowledgeUpdate).toHaveBeenCalledTimes(1)
+  })
 })

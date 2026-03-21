@@ -6,6 +6,17 @@ The format is based on Keep a Changelog, and this project currently uses date-ba
 
 ## [Unreleased]
 
+Improves how installed and open app sessions notice newly deployed builds without depending on the GitHub API.
+
+### Added
+
+- Added build metadata generation and a same-origin `build-meta.json` endpoint for deployed version checks.
+- Added an in-app update banner with reload and dismiss actions when a newer build is available.
+
+### Changed
+
+- The app now compares the running build against deployed metadata on load, on an interval, and when the tab becomes visible again.
+
 ## [0.1.2] - 2026-03-21
 
 Adds browser-persistent pinned characters and smooths how pinned selections restore across searches and background Unicode hydration.
