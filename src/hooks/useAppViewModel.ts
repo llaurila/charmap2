@@ -1,7 +1,8 @@
 import { useCallback, useMemo } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { featuredSets } from '../data/featuredSets'
-import type { ResultRecord, SearchRecord } from '../types/unicode'
+import type { AppMode, ResultRecord, SearchRecord } from '../types/unicode'
+import { useTextInspector } from './useTextInspector'
 import { useCharacterSearchResults } from './useCharacterSearchResults'
 import { usePinnedCharacters } from './usePinnedCharacters'
 import { useResultsPanelViewModel } from './useResultsPanelViewModel'
@@ -16,12 +17,14 @@ export type FeaturedSetItem = {
 }
 
 type AppViewModel = {
+  appMode: AppMode
   detailPanel: {
     isPinned: boolean
     onTogglePinned: () => void
     selectedDetailRecord: ResultRecord | null
   }
   featuredSetsPanel: {
+    appMode: AppMode
     activeSet: string | undefined
     isReady: boolean
     items: FeaturedSetItem[]
@@ -29,34 +32,53 @@ type AppViewModel = {
     onSelectSet: Dispatch<SetStateAction<string | undefined>>
   }
   header: {
+    appMode: AppMode
     blockCount: number
     indexedCharacterCount: number
+    inspectorInput: string
+    onInspectorInputChange: (value: string) => void
+    onInspectorReset: () => void
+    inspectorMenu?: {
+      actions: ReturnType<typeof useTextInspector>['actions']
+      filter: ReturnType<typeof useTextInspector>['filter']
+      hasInput: boolean
+      isOpen: boolean
+      onCopyAction: ReturnType<typeof useTextInspector>['onCopyAction']
+      onSelectFilter: ReturnType<typeof useTextInspector>['onSelectFilter']
+      onToggle: ReturnType<typeof useTextInspector>['onToggleMenu']
+    }
   }
   pinnedPanel: {
     items: ResultRecord[]
     onSelectPinned: (cp: number) => void
     selectedCp: number | null
   }
+  setAppMode: Dispatch<SetStateAction<AppMode>>
   resultsPanel: {
     model: ResultsPanelViewModel
   }
   searchPanel: {
+    appMode: AppMode
     disabled: boolean
+    onAppModeChange: Dispatch<SetStateAction<AppMode>>
     onQueryInputChange: Dispatch<SetStateAction<string>>
     onReset: () => void
     onSelectFirstResult: () => void
     queryInput: string
   }
+  textInspector: ReturnType<typeof useTextInspector>
 }
 
 export function useAppViewModel(): AppViewModel {
   const {
+    appMode,
     activeSet,
     hasQuery,
     query,
     queryInput,
     resetSearch,
     searchStatusText,
+    setAppMode,
     setActiveSet,
     setQueryInput,
   } = useSearchControls()
@@ -93,6 +115,11 @@ export function useAppViewModel(): AppViewModel {
         : null,
     [pinnedRecords, selectedCp],
   )
+  const textInspector = useTextInspector({
+    loadedRecordsByCp,
+    searchIndex,
+    setSelectedCp,
+  })
   const {
     directLookupCp,
     displayResults,
@@ -103,7 +130,8 @@ export function useAppViewModel(): AppViewModel {
   } = useCharacterSearchResults({
     activeSet,
     blockIndex,
-    detachedSelectionRecord: selectedPinnedRecord,
+    detachedSelectionRecord:
+      appMode === 'inspector' ? textInspector.selectedRecord : selectedPinnedRecord,
     hasQuery,
     loadedBlocks,
     loadBlock,
@@ -173,12 +201,14 @@ export function useAppViewModel(): AppViewModel {
   }, [searchIndex])
 
   return {
+    appMode,
     detailPanel: {
       isPinned: selectedDetailCp !== null ? isPinned(selectedDetailCp) : false,
       onTogglePinned: togglePinnedSelection,
       selectedDetailRecord,
     },
     featuredSetsPanel: {
+      appMode,
       activeSet,
       isReady,
       items: featuredSetItems,
@@ -186,23 +216,43 @@ export function useAppViewModel(): AppViewModel {
       onSelectSet: setActiveSet,
     },
     header: {
+      appMode,
       blockCount: blockIndex.length,
       indexedCharacterCount: searchIndex.length,
+      inspectorInput: textInspector.input,
+      onInspectorInputChange: textInspector.onInputChange,
+      onInspectorReset: textInspector.onReset,
+      inspectorMenu:
+        appMode === 'inspector'
+          ? {
+              actions: textInspector.actions,
+              filter: textInspector.filter,
+              hasInput: textInspector.input.length > 0,
+              isOpen: textInspector.isMenuOpen,
+              onCopyAction: textInspector.onCopyAction,
+              onSelectFilter: textInspector.onSelectFilter,
+              onToggle: textInspector.onToggleMenu,
+            }
+          : undefined,
     },
     pinnedPanel: {
       items: pinnedItems,
       onSelectPinned: selectPinnedCharacter,
       selectedCp,
     },
+    setAppMode,
     resultsPanel: {
       model: resultsModel,
     },
     searchPanel: {
+      appMode,
       disabled: !isReady,
+      onAppModeChange: setAppMode,
       onQueryInputChange: setQueryInput,
       onReset: resetSearch,
       onSelectFirstResult: selectFirstResult,
       queryInput,
     },
+    textInspector,
   }
 }

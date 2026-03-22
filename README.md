@@ -20,7 +20,11 @@ Charmap2 is a static Unicode character map for the browser. It is built to repla
 
 Charmap2 is an early public project, but the repository already includes a working app, Unicode ingestion scripts, generated data, and tests. The current focus is polishing the MVP around single Unicode code points, including single-code-point emoji.
 
-See `SPECS.md` for the current product and implementation direction.
+See the project specs for the current product and implementation direction:
+
+- `SPECS.md`
+- `specs/ROADMAP.md`
+- `specs/TEST_INSPECTOR.md`
 
 ## Stack
 

@@ -5,6 +5,10 @@ export type CharacterKind =
   | 'format'
   | 'control'
 
+export type AppMode = 'search' | 'inspector'
+
+export type InspectorFilter = 'all' | 'suspicious' | 'invisible'
+
 export type SearchRecord = {
   cp: number
   name: string
@@ -71,4 +75,37 @@ export type BlockIndexEntry = {
   end: number
   count: number
   file: string
+}
+
+export type InspectorUnit = {
+  id: string
+  index: number
+  cp: number
+  text: string
+  line: number
+  column: number
+  name: string
+  aliases?: string[]
+  block: string
+  script: string
+  kind: CharacterKind
+  flags: string[]
+  warningTags: string[]
+  isSuspicious: boolean
+}
+
+export type InspectorWarning = {
+  id: string
+  title: string
+  description: string
+  count: number
+  firstIndex: number
+}
+
+export type InspectorSummary = {
+  codePointCount: number
+  lineCount: number
+  invisibleCount: number
+  warningCount: number
+  hasSuspiciousContent: boolean
 }

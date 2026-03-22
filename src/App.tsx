@@ -7,6 +7,7 @@ import { InstallPanel } from './components/InstallPanel'
 import { PinnedItemsPanel } from './components/PinnedItemsPanel'
 import { ResultsPanel } from './components/ResultsPanel'
 import { SearchPanel } from './components/SearchPanel'
+import { TextInspectorPanel } from './components/TextInspectorPanel'
 import { UpdatePanel } from './components/UpdatePanel'
 import { useAppViewModel } from './hooks/useAppViewModel'
 import { useUpdateCheck } from './hooks/useUpdateCheck'
@@ -49,8 +50,16 @@ const scrollDetailPanelIntoView = (): void => {
 }
 
 export default function App() {
-  const { detailPanel, featuredSetsPanel, header, pinnedPanel, resultsPanel, searchPanel } =
-    useAppViewModel()
+  const {
+    appMode,
+    detailPanel,
+    featuredSetsPanel,
+    header,
+    pinnedPanel,
+    resultsPanel,
+    searchPanel,
+    textInspector,
+  } = useAppViewModel()
   const updateCheck = useUpdateCheck()
 
   const handleSelectPinned = useCallback(
@@ -84,8 +93,14 @@ export default function App() {
   return (
     <div className="app-shell">
       <AppHeader
+        appMode={header.appMode}
         blockCount={header.blockCount}
         indexedCharacterCount={header.indexedCharacterCount}
+        inspectorInput={header.inspectorInput}
+        inspectorMenu={header.inspectorMenu}
+        onAppModeChange={searchPanel.onAppModeChange}
+        onInspectorInputChange={header.onInspectorInputChange}
+        onInspectorReset={header.onInspectorReset}
       />
 
       <InstallPanel />
@@ -100,14 +115,43 @@ export default function App() {
         onReload={updateCheck.reloadToUpdate}
       />
 
-      <main className="workspace">
+      <main className="workspace" data-app-mode={appMode}>
         <PinnedItemsPanel
           items={pinnedPanel.items}
           onSelectPinned={handleSelectPinned}
           selectedCp={pinnedPanel.selectedCp}
         />
-        <SearchPanel {...searchPanel} />
-        <ResultsPanel model={resultsPanelModel} />
+        <div className="workspace-main">
+          <SearchPanel {...searchPanel} />
+          {appMode === 'search' ? (
+            <ResultsPanel model={resultsPanelModel} />
+          ) : (
+            <TextInspectorPanel
+              announceMessage={textInspector.announceMessage}
+              copiedLabel={textInspector.copiedLabel}
+              filterLabel={textInspector.filterLabel}
+              onJumpToWarning={(warning) => {
+                textInspector.onJumpToWarning(warning)
+
+                if (shouldAutoScrollDetailPanel()) {
+                  scrollDetailPanelIntoView()
+                }
+              }}
+              onReset={textInspector.onReset}
+              onSelectUnit={(unit) => {
+                textInspector.onSelectUnit(unit)
+
+                if (shouldAutoScrollDetailPanel()) {
+                  scrollDetailPanelIntoView()
+                }
+              }}
+              selectedIndex={textInspector.selectedIndex}
+              summary={textInspector.summary}
+              visibleUnits={textInspector.visibleUnits}
+              warnings={textInspector.warnings}
+            />
+          )}
+        </div>
         <FeaturedSetsPanel {...featuredSetsPanel} />
         <DetailPanel
           isPinned={detailPanel.isPinned}

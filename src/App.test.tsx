@@ -351,6 +351,49 @@ describe('App', () => {
     expect(dismissInstallPanel).toHaveBeenCalledTimes(1)
   })
 
+  it('switches to text inspector mode and inspects pasted text', async () => {
+    await act(async () => {
+      root.render(<App />)
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      Array.from(container.querySelectorAll('.hero-mode-switch__button'))
+        .find((button) => button.textContent === 'Text Inspector')
+        ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      await Promise.resolve()
+    })
+
+    const textarea = container.querySelector('textarea')
+
+    expect(textarea).toBeInstanceOf(HTMLTextAreaElement)
+    expect(document.activeElement).toBe(textarea)
+    expect(container.textContent).toContain('Text Inspector Active')
+
+    await act(async () => {
+      const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')
+      descriptor?.set?.call(textarea, 'A\u00A0\u200D')
+      textarea?.dispatchEvent(new Event('input', { bubbles: true }))
+      await Promise.resolve()
+    })
+
+    expect(container.textContent).toContain('3 code points')
+    expect(container.textContent).toContain('Warnings')
+    expect(container.textContent).toContain('No-break or uncommon space characters')
+
+    const inspectorRows = Array.from(container.querySelectorAll('.text-inspector-row'))
+
+    expect(inspectorRows).toHaveLength(3)
+
+    await act(async () => {
+      inspectorRows[2]
+        ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      await Promise.resolve()
+    })
+
+    expect(container.querySelector('.detail-panel h2')?.textContent).toBe('ZERO WIDTH JOINER')
+  })
+
   it('scrolls to the detail panel when a pinned character is selected on mobile', async () => {
     const scrollTo = vi.fn()
 
