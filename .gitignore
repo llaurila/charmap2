@@ -14,3 +14,4 @@ src/types/*.js
 src/types/*.d.ts
 scripts/unicode/*.js
 scripts/unicode/*.d.ts
+.opencode/package-lock.json
