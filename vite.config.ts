@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
+import type { Plugin } from 'vite'
 import packageJson from './package.json'
 import {
   BUILD_METADATA_FILE_NAME,
@@ -15,7 +16,7 @@ const normalizeBasePath = (base: string): string => {
   return withLeadingSlash.endsWith('/') ? withLeadingSlash : `${withLeadingSlash}/`
 }
 
-const buildMetadataPlugin = () => ({
+const buildMetadataPlugin = (): Plugin => ({
   name: 'build-metadata',
   configureServer(server) {
     const buildMetadataPath = `${normalizeBasePath(server.config.base)}${BUILD_METADATA_FILE_NAME}`
