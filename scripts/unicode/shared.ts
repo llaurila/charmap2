@@ -978,7 +978,7 @@ export const assertVendoredFilesExist = async (): Promise<void> => {
     try {
       await stat(filePath)
     } catch {
-      throw new Error(`Missing vendored Unicode file '${fileName}'. Run 'npm run vendor:unicode' first.`)
+      throw new Error(`Missing vendored Unicode file '${fileName}'. Run 'pnpm run vendor:unicode' first.`)
     }
   }
 }

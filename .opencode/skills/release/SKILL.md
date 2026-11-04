@@ -19,7 +19,7 @@ This skill handles the full release flow for this repository:
 ## Source Of Truth
 
 - `package.json` is the source of truth for the app version
-- `package-lock.json` must match `package.json`
+- `pnpm-lock.yaml` must stay in sync with dependency declarations in `package.json` (it does not store the app version)
 - the runtime app version is injected from `package.json` through `vite.config.ts`
 - the footer displays the runtime app version, so a version bump must keep the app metadata aligned
 
@@ -37,7 +37,7 @@ This skill handles the full release flow for this repository:
 For a release like `v0.1.2`:
 
 1. Set `package.json` `version` to `0.1.2`
-2. Set the root package version fields in `package-lock.json` to `0.1.2`
+2. If dependency declarations changed, update `pnpm-lock.yaml` with `pnpm install`; a version-only bump does not change this lockfile
 3. Update `CHANGELOG.md`
    - move all relevant items out of `## [Unreleased]`
    - create a new section `## [0.1.2] - YYYY-MM-DD`
@@ -48,9 +48,9 @@ For a release like `v0.1.2`:
 Run these commands before committing the release:
 
 ```bash
-npm run lint
-npm test
-npm run build
+pnpm run lint
+pnpm test
+pnpm run build
 ```
 
 If any command fails, fix the issue before continuing.
@@ -62,7 +62,7 @@ After the files are updated and checks pass:
 ```bash
 git status --short --branch
 git tag --list
-git add package.json package-lock.json CHANGELOG.md [any other release-touched files]
+git add package.json CHANGELOG.md [pnpm-lock.yaml if changed] [any other release-touched files]
 git commit -m "release v0.1.2"
 git tag v0.1.2
 git push origin main
@@ -94,7 +94,7 @@ Use `gh` for GitHub follow-up tasks if the user asks.
 
 - confirm target version
 - update `package.json`
-- update `package-lock.json`
+- update `pnpm-lock.yaml` if dependency declarations changed
 - finalize `CHANGELOG.md`
 - run lint, tests, and build
 - commit the release

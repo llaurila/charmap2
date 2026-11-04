@@ -11,17 +11,17 @@ Thanks for your interest in Charmap2.
 ## Local setup
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 Other useful commands:
 
 ```bash
-npm test
-npm run build
-npm run vendor:unicode
-npm run generate:unicode
+pnpm test
+pnpm run build
+pnpm run vendor:unicode
+pnpm run generate:unicode
 ```
 
 ## Development notes
@@ -38,7 +38,7 @@ Please try to keep pull requests focused and reviewable.
 - Explain the user-facing problem being solved.
 - Mention any spec changes explicitly.
 - Include tests when logic changes are introduced.
-- Run `npm test` and `npm run build` before submitting.
+- Run `pnpm test` and `pnpm run build` before submitting.
 
 ## Generated files
 

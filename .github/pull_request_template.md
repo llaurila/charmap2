@@ -8,6 +8,6 @@
 
 ## Checks
 
-- [ ] `npm test`
-- [ ] `npm run build`
+- [ ] `pnpm test`
+- [ ] `pnpm run build`
 - [ ] Spec impact reviewed

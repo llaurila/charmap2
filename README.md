@@ -38,31 +38,37 @@ See the project specs for the current product and implementation direction:
 
 Requirements:
 
-- Node.js 22 or newer
-- npm
+- Node.js 22.12.0 or newer
+- pnpm 10.34.9 (pinned in `package.json`)
+
+Enable pnpm through Corepack (install Corepack first if your Node.js distribution does not include it):
+
+```bash
+corepack enable
+```
 
 Install dependencies:
 
 ```bash
-npm install
+pnpm install
 ```
 
 Start the dev server:
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 Run tests:
 
 ```bash
-npm test
+pnpm test
 ```
 
 Build the app:
 
 ```bash
-npm run build
+pnpm run build
 ```
 
 ## Unicode data pipeline
@@ -74,8 +80,8 @@ npm run build
 Useful commands:
 
 ```bash
-npm run vendor:unicode
-npm run generate:unicode
+pnpm run vendor:unicode
+pnpm run generate:unicode
 ```
 
 ## Contributing

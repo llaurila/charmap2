@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project currently uses date-ba
 
 ## [Unreleased]
 
+### Changed
+
+- Migrated dependency management, development commands, and CI workflows from npm to pnpm.
+
 ## [0.2.0] - 2026-03-21
 
 Improves deployed update checks and introduces a mobile-optimized UI for searching and inspecting characters on phones.

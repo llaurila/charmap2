@@ -21,4 +21,4 @@ Unless otherwise noted, the original Charmap2 source code in this repository is 
 
 ## Dependency licenses
 
-Package dependency license information is available through the npm lockfile and each dependency's published package metadata. If this project starts shipping distributable releases beyond the repository itself, a generated dependency license inventory should be added as part of the release process.
+Package dependency license information is available through the pnpm lockfile (`pnpm-lock.yaml`) and each dependency's published package metadata. If this project starts shipping distributable releases beyond the repository itself, a generated dependency license inventory should be added as part of the release process.
