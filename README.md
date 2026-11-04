@@ -73,8 +73,8 @@ pnpm run build
 
 ## Unicode data pipeline
 
-- vendored Unicode source files live under `vendor/unicode/17.0.0/`
-- the app generates static assets into `public/unicode/17.0.0/`
+- vendored Unicode source files live under `vendor/unicode/18.0.0/`
+- the app generates static assets into `public/unicode/18.0.0/`
 - the browser uses generated JSON, not raw Unicode text files
 
 Useful commands:

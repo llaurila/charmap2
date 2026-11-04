@@ -9,6 +9,11 @@ The format is based on Keep a Changelog, and this project currently uses date-ba
 ### Changed
 
 - Migrated dependency management, development commands, and CI workflows from npm to pnpm.
+- Upgraded the vendored Unicode Character Database and generated search and detail assets from Unicode 17.0.0 to 18.0.0, including algorithmic names for Jurchen and Small Seal characters.
+
+### Fixed
+
+- Sorted parsed Unicode property ranges before binary search so script and age metadata are resolved correctly.
 
 ## [0.2.0] - 2026-03-21
 

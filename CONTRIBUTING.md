@@ -27,8 +27,8 @@ pnpm run generate:unicode
 ## Development notes
 
 - The app is a static Vite + React + TypeScript project.
-- Unicode source files are vendored under `vendor/unicode/17.0.0/`.
-- Generated runtime assets are written under `public/unicode/17.0.0/`.
+- Unicode source files are vendored under `vendor/unicode/18.0.0/`.
+- Generated runtime assets are written under `public/unicode/18.0.0/`.
 - Search and detail behavior should stay aligned with `SPECS.md` unless the spec is intentionally being revised.
 
 ## Pull requests

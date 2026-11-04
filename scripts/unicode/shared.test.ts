@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   classifyKind,
+  findRangeValue,
   getHangulSyllableName,
   isNoncharacter,
   parseCodePointRange,
+  parseRangeValueFile,
   parseUnicodeData,
   synthesizeRangeName,
 } from './shared'
@@ -17,6 +19,20 @@ describe('unicode helpers', () => {
   it('builds Hangul syllable names algorithmically', () => {
     expect(getHangulSyllableName(0xac00)).toBe('HANGUL SYLLABLE GA')
     expect(getHangulSyllableName(0xac01)).toBe('HANGUL SYLLABLE GAG')
+  })
+
+  it('orders property ranges by code point before binary search', () => {
+    const ranges = parseRangeValueFile([
+      '3D000..3FC3F ; Seal',
+      '0041..005A ; Latin',
+      '18E00..19191 ; Jurchen',
+    ].join('\n'))
+
+    expect(ranges.map((range) => range.start)).toEqual([0x41, 0x18e00, 0x3d000])
+    expect(findRangeValue(ranges, 0x41, 'Unknown')).toBe('Latin')
+    expect(findRangeValue(ranges, 0x19191, 'Unknown')).toBe('Jurchen')
+    expect(findRangeValue(ranges, 0x3fc3f, 'Unknown')).toBe('Seal')
+    expect(findRangeValue(ranges, 0x19192, 'Unknown')).toBe('Unknown')
   })
 
   it('synthesizes algorithmic ideograph names', () => {
@@ -42,6 +58,28 @@ describe('unicode helpers', () => {
       'HANGUL SYLLABLE GAG',
       '<control>',
     ])
+  })
+
+  it.each([
+    ['Jurchen Character', 0x18e00, 0x19191, 'JURCHEN CHARACTER'],
+    ['Seal Character', 0x3d000, 0x3fc3f, 'SMALL SEAL CHARACTER'],
+  ] as const)('expands Unicode 18 %s ranges with official names', (label, start, end, prefix) => {
+    const parsed = parseUnicodeData([
+      `${start.toString(16)};<${label}, First>;Lo;0;L;;;;;N;;;;;`,
+      `${end.toString(16)};<${label}, Last>;Lo;0;L;;;;;N;;;;;`,
+    ].join('\n'))
+
+    expect(parsed).toHaveLength(end - start + 1)
+    expect(parsed[0]).toMatchObject({
+      cp: start,
+      name: `${prefix}-${start.toString(16).toUpperCase()}`,
+      category: 'Lo',
+    })
+    expect(parsed.at(-1)).toMatchObject({
+      cp: end,
+      name: `${prefix}-${end.toString(16).toUpperCase()}`,
+      category: 'Lo',
+    })
   })
 
   it('classifies combining and whitespace records', () => {

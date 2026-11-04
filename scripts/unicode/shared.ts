@@ -151,6 +151,7 @@ export const parseRangeValueFile = (source: string): RangeValue[] =>
         value: valueText,
       }
     })
+    .sort((left, right) => left.start - right.start)
 
 export const findRangeValue = (
   ranges: RangeValue[],
@@ -372,6 +373,8 @@ export const synthesizeRangeName = (label: string, cp: number): string => {
   const exactName = new Map<string, string>([
     ['Nushu Character', 'NUSHU CHARACTER'],
     ['Khitan Small Script Character', 'KHITAN SMALL SCRIPT CHARACTER'],
+    ['Jurchen Character', 'JURCHEN CHARACTER'],
+    ['Seal Character', 'SMALL SEAL CHARACTER'],
   ]).get(label)
 
   if (exactName) {

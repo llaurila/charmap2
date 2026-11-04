@@ -11,7 +11,7 @@ The MVP focuses on single Unicode code points only.
 - Ship as a static website.
 - Use Vite, React, and TypeScript.
 - Pin Unicode data to a specific version instead of using `latest`.
-- Start with Unicode `17.0.0`.
+- Use Unicode `18.0.0`.
 - Use the official Unicode Character Database files as the source of truth.
 - Vendor raw Unicode source files locally and generate app data at build time.
 - Treat the app as Unicode-first, not font-first.
@@ -48,13 +48,13 @@ The MVP focuses on single Unicode code points only.
 
 Use the official versioned Unicode archive, not `latest`.
 
-- Base URL: `https://www.unicode.org/Public/17.0.0/ucd/`
-- Primary file: `https://www.unicode.org/Public/17.0.0/ucd/UnicodeData.txt`
+- Base URL: `https://www.unicode.org/Public/18.0.0/ucd/`
+- Primary file: `https://www.unicode.org/Public/18.0.0/ucd/UnicodeData.txt`
 
 Vendored source files should live under:
 
 ```text
-vendor/unicode/17.0.0/
+vendor/unicode/18.0.0/
 ```
 
 The build should read vendored files, not fetch from the network at runtime.
@@ -72,7 +72,7 @@ The build should read vendored files, not fetch from the network at runtime.
 | `NamesList.txt` | Editorial notes and annotations | No | Useful as human reference only. Do not machine-parse into the app. |
 | `Unihan.zip` | Han definitions and readings | Later | Phase 2 for better CJK support. |
 
-Do not use `@unicode/unicode-17.0.0` as the primary source for names and aliases. It can be useful as reference material, but the raw UCD files are the authoritative input for this project.
+Do not use `@unicode/unicode-18.0.0` as the primary source for names and aliases. It can be useful as reference material, but the raw UCD files are the authoritative input for this project.
 
 ## Description strategy
 
@@ -96,10 +96,10 @@ MVP description strategy:
 Recommended layout:
 
 ```text
-vendor/unicode/17.0.0/
+vendor/unicode/18.0.0/
 scripts/unicode/
 src/
-public/unicode/17.0.0/
+public/unicode/18.0.0/
 ```
 
 Build pipeline:
@@ -157,9 +157,9 @@ Generate data into small, purpose-specific assets.
 
 Suggested outputs:
 
-- `public/unicode/17.0.0/search-core.json`
-- `public/unicode/17.0.0/ranges.json`
-- `public/unicode/17.0.0/blocks/*.json`
+- `public/unicode/18.0.0/search-core.json`
+- `public/unicode/18.0.0/ranges.json`
+- `public/unicode/18.0.0/blocks/*.json`
 - `src/data/featuredSets.ts`
 - `src/data/descriptionOverrides.ts`
 
@@ -327,7 +327,7 @@ Add tests for:
 
 Phase 1:
 
-1. Vendor Unicode `17.0.0` source files.
+1. Vendor Unicode `18.0.0` source files.
 2. Build the ingestion pipeline and generate stable JSON artifacts.
 3. Build the search-first application shell.
 4. Add the result grid and detail panel.

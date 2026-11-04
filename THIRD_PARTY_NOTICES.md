@@ -4,8 +4,8 @@ Charmap2 includes Unicode data files and generated derivative data based on the 
 
 ## Unicode data
 
-- Source files are vendored under `vendor/unicode/17.0.0/`.
-- Generated application assets derived from those files are committed under `public/unicode/17.0.0/`.
+- Source files are vendored under `vendor/unicode/18.0.0/`.
+- Generated application assets derived from those files are committed under `public/unicode/18.0.0/`.
 - The Unicode data files in this repository include references to Unicode, Inc. copyright and terms of use.
 
 Unicode data and related materials are provided by Unicode, Inc. under Unicode terms of use. See:
