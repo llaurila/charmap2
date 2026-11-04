@@ -6,6 +6,30 @@ The format is based on Keep a Changelog, and this project currently uses date-ba
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-04
+
+Introduces Text Inspector as a single-string diagnostic tool for understanding hidden characters and unexpected Unicode behavior.
+
+### Added
+
+- Added a dedicated Text Inspector mode with live analysis, an annotated text preview, and a compact code-point breakdown linked to character details.
+- Added contextual findings with Information, Worth checking, and Potential problem levels, plus previous/next occurrence navigation.
+- Added diagnostics for unusual and mixed spaces, bidi controls, invisible format clusters, combining marks, variation selectors, lone UTF-16 surrogates, private-use characters, and noncharacters.
+- Added visible All, Findings, and Invisible filters, opt-in example text, and keyboard-accessible copy/export previews for raw text, code point lists, JavaScript string literals, and HTML numeric references.
+- Added explicit warnings for lossy HTML output and background analysis with paged previews and rows for longer text.
+
+### Changed
+
+- Kept inspector input, findings, and output together in the workspace, with contextual occurrence information in the existing detail panel.
+- Clarified input preservation, logical line counts, UTF-16 positions, and the limits of diagnostic findings; comparison and normalization diagnostics remain outside this initial release.
+
+### Fixed
+
+- Prevented pending search updates from overriding inspector selection and cleared stale occurrence selection and copy feedback after input edits.
+- Made essential diagnostic classification independent of lazily loaded detail metadata, including bidi control detection.
+- Fixed lazy-loaded character details remaining stuck on Loading after React Strict Mode effect replay in development.
+- Kept sidebar panels stacked directly beneath each other, with unused vertical space at the bottom, and prevented finding navigation from scrolling away to the breakdown.
+
 ## [0.2.2] - 2026-11-04
 
 ### Added

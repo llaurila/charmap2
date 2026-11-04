@@ -13,18 +13,19 @@ Charmap2 is a static Unicode character map for the browser. It is built to repla
 - search by character, official name, alias, abbreviation, block, script, or code point
 - preview the selected character with richer metadata
 - explain confusing invisible, control, formatting, and combining characters
+- inspect pasted text with an annotated preview, contextual findings, and occurrence navigation
 - copy the raw character plus common escaped forms
 - ship as a static site with no backend
 
 ## Status
 
-Charmap2 is an early public project, but the repository already includes a working app, Unicode ingestion scripts, generated data, and tests. The current focus is polishing the MVP around single Unicode code points, including single-code-point emoji.
+Charmap2 is an early public project with a working character map, a single-string Text Inspector, Unicode ingestion scripts, generated data, and tests. Character details remain code-point-first, while Text Inspector provides contextual diagnostics for pasted text.
 
 See the project specs for the current product and implementation direction:
 
 - `SPECS.md`
 - `specs/ROADMAP.md`
-- `specs/TEST_INSPECTOR.md`
+- `specs/TEXT_INSPECTOR.md`
 
 ## Stack
 
@@ -58,6 +59,13 @@ Start the dev server:
 ```bash
 pnpm run dev
 ```
+
+Open the local app and choose **Text Inspector** in the header. Paste text or try an example;
+short input is analyzed live. Above 4,000 UTF-16 units, choose **Analyze** to run analysis in a
+background worker. The current limit is 100,000 UTF-16 units, with paged previews and breakdown
+rows so long text does not create an unbounded UI. Input is never cleaned or normalized.
+
+Comparison and canonical normalization diagnostics are not part of this initial diagnostic release.
 
 Run tests:
 

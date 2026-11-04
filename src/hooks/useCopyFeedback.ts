@@ -1,15 +1,17 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { copyText } from '../utils/clipboard'
 
 type UseCopyFeedbackResult = {
   announceMessage: string
   copiedLabel: string | null
   copyValue: (label: string, value: string) => Promise<void>
+  clearFeedback: () => void
 }
 
 export function useCopyFeedback(): UseCopyFeedbackResult {
   const [copiedLabel, setCopiedLabel] = useState<string | null>(null)
   const [announceMessage, setAnnounceMessage] = useState('')
+  const revisionRef = useRef(0)
 
   useEffect(() => {
     if (!copiedLabel) {
@@ -31,13 +33,21 @@ export function useCopyFeedback(): UseCopyFeedbackResult {
   }, [announceMessage])
 
   const copyValue = useCallback(async (label: string, value: string): Promise<void> => {
+    const revision = revisionRef.current
     await copyText(value)
-    setCopiedLabel(label)
+    if (revisionRef.current === revision) setCopiedLabel(label)
+  }, [])
+
+  const clearFeedback = useCallback((): void => {
+    revisionRef.current += 1
+    setCopiedLabel(null)
+    setAnnounceMessage('')
   }, [])
 
   return {
     announceMessage,
     copiedLabel,
     copyValue,
+    clearFeedback,
   }
 }

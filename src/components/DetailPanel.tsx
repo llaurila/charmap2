@@ -34,6 +34,7 @@ type DetailPanelProps = {
   isPinned: boolean
   onTogglePinned: () => void
   selectedDetailRecord: ResultRecord | null
+  inspectorContext?: { line: number; column: number; excerpt: string }
 }
 
 function DetailBadges({ record }: { record: ResultRecord }) {
@@ -164,6 +165,7 @@ export function DetailPanel({
   isPinned,
   onTogglePinned,
   selectedDetailRecord,
+  inspectorContext,
 }: DetailPanelProps) {
   const { announceMessage, copiedLabel, copyFormats, handleCopyFormat } =
     useDetailCopyFormats(selectedDetailRecord)
@@ -173,6 +175,14 @@ export function DetailPanel({
       <div className="sr-only" aria-live="polite" aria-atomic="true">
         {announceMessage}
       </div>
+      {inspectorContext ? (
+        <div className="inspector-detail-context">
+          <p>
+            From inspected text · line {inspectorContext.line}, column {inspectorContext.column}
+          </p>
+          <code dir="ltr">{inspectorContext.excerpt}</code>
+        </div>
+      ) : null}
       {selectedDetailRecord ? (
         <DetailPanelContent
           copiedLabel={copiedLabel}

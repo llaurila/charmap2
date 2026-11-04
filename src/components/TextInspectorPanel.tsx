@@ -1,142 +1,139 @@
 import { useEffect, useRef } from 'react'
-import type { InspectorSummary, InspectorUnit, InspectorWarning } from '../types/unicode'
-import { formatCodePoint } from '../utils/copyFormats'
-import { getPrimaryGlyph } from '../utils/rendering'
+import type { useTextInspector } from '../hooks/useTextInspector'
+import type { InspectorUnit } from '../types/unicode'
+import { LIVE_ANALYSIS_LIMIT, MAX_INSPECTOR_INPUT } from '../utils/textInspector'
+import { TextInspectorExportMenu } from './TextInspectorExportMenu'
+import { TextInspectorFindings } from './TextInspectorFindings'
+import { TextInspectorList } from './TextInspectorList'
+import { TextInspectorPreview } from './TextInspectorPreview'
 
+const examples = [
+  { label: 'No-break spaces', text: 'Price:\u00A0€10\nTotal:\u00A0€20' },
+  { label: 'Hidden break', text: 'user\u200Bname@example.com' },
+  { label: 'Bidi override', text: 'File: report\u202Etxt.exe\u202C' },
+  { label: 'Emoji joiner', text: 'Hello 👩‍💻 ❤️' },
+]
+
+type InspectorModel = ReturnType<typeof useTextInspector>
 type TextInspectorPanelProps = {
-  announceMessage: string
-  copiedLabel: string | null
-  filterLabel: string
-  onJumpToWarning: (warning: InspectorWarning) => void
-  onReset: () => void
-  onSelectUnit: (unit: InspectorUnit) => void
-  selectedIndex: number | null
-  summary: InspectorSummary
-  visibleUnits: InspectorUnit[]
-  warnings: InspectorWarning[]
+  model: InspectorModel
+  onInspectUnit: (unit: InspectorUnit) => void
 }
 
-export function TextInspectorPanel({
-  announceMessage,
-  copiedLabel,
-  filterLabel,
-  onJumpToWarning,
-  onReset,
-  onSelectUnit,
-  selectedIndex,
-  summary,
-  visibleUnits,
-  warnings,
-}: TextInspectorPanelProps) {
-  const selectedRowRef = useRef<HTMLButtonElement | null>(null)
-
-  useEffect(() => {
-    if (typeof selectedRowRef.current?.scrollIntoView === 'function') {
-      selectedRowRef.current.scrollIntoView({ block: 'nearest' })
-    }
-  }, [selectedIndex])
+export function TextInspectorPanel({ model, onInspectUnit }: TextInspectorPanelProps) {
+  const inputRef = useRef<HTMLTextAreaElement | null>(null)
+  const { input } = model
+  useEffect(() => { inputRef.current?.focus() }, [])
 
   return (
     <section className="panel text-inspector-panel">
-      <div className="sr-only" aria-live="polite" aria-atomic="true">
-        {announceMessage}
-      </div>
-
+      <div className="sr-only" aria-live="polite" aria-atomic="true">{model.announceMessage}</div>
       <div className="panel-heading text-inspector-heading">
         <div>
           <h2>Text Inspector</h2>
-          <p>
-            Paste arbitrary text to inspect code points, invisible characters,
-            and suspicious content.
-          </p>
+          <p>Paste text, see what is unusual, and understand where and why it matters.</p>
         </div>
-
-        <div className="text-inspector-heading__actions">
-          <button type="button" className="ghost-button" onClick={onReset}>
-            Reset
-          </button>
-        </div>
+        <button
+          type="button" className="ghost-button" disabled={!input.length}
+          onClick={() => { model.onReset(); inputRef.current?.focus() }}
+        >Clear text</button>
       </div>
+      <label className="text-inspector-input">
+        <span>Text to inspect</span>
+        <textarea
+          ref={inputRef} value={input} rows={5} spellCheck={false} dir="auto"
+          aria-describedby="inspector-input-note"
+          placeholder="Paste text containing spaces, joins, controls, or combining marks…"
+          onChange={(event) => model.onInputChange(event.target.value)}
+        />
+      </label>
+      <p id="inspector-input-note" className="inspector-input-note">
+        Analyzed locally, without changing your text. Browser text input converts CR/CRLF to LF.
+      </p>
+      <InspectorExamples model={model} />
+      <InspectorActions model={model} />
+      <AnalysisStatus model={model} />
+      {model.copiedLabel ? <p role="status">{model.copiedLabel} copied</p> : null}
+      {model.error ? <p className="inspector-lossy" role="alert">{model.error}</p> : null}
+      <InspectorContent model={model} onInspectUnit={onInspectUnit} />
+      {!input.length ? (
+        <div className="empty-state text-inspector-empty">
+          <h3>No text inspected yet</h3>
+          <p>Paste text or try an example to reveal hidden characters in context.</p>
+        </div>
+      ) : null}
+    </section>
+  )
+}
 
+function InspectorExamples({ model }: { model: InspectorModel }) {
+  if (model.input.length) return null
+  return (
+    <div className="inspector-examples" aria-label="Try an example">
+      <span>Try an example:</span>
+      {examples.map((example) => (
+        <button
+          key={example.label} type="button" className="ghost-button"
+          onClick={() => model.onInputChange(example.text)}
+        >{example.label}</button>
+      ))}
+    </div>
+  )
+}
+
+function InspectorActions({ model }: { model: InspectorModel }) {
+  return (
+    <div className="inspector-actions">
+      {model.isLargeInput && !model.isUnsupported ? (
+        <button
+          type="button" className="ghost-button"
+          disabled={!model.isReady || model.isAnalyzing || model.isCurrent}
+          onClick={model.onAnalyze}
+        >{model.isAnalyzing ? 'Analyzing…' : 'Analyze'}</button>
+      ) : null}
+      <TextInspectorExportMenu
+        input={model.input} units={model.units} isCurrent={model.isCurrent} onCopy={model.onCopy}
+      />
+    </div>
+  )
+}
+
+function InspectorContent({ model, onInspectUnit }: TextInspectorPanelProps) {
+  if (!model.input.length || !model.isCurrent) return null
+  const { summary } = model
+  return (
+    <>
       <div className="text-inspector-summary" aria-label="Text inspector summary">
         <span>{summary.codePointCount.toLocaleString()} code points</span>
         <span>{summary.lineCount.toLocaleString()} lines</span>
         <span>{summary.invisibleCount.toLocaleString()} invisible or control</span>
-        <span>{summary.warningCount.toLocaleString()} warnings</span>
-        <span>{filterLabel}</span>
+        <span>{summary.findingGroupCount} finding groups</span>
+        <span>{summary.checkOrProblemGroupCount} worth checking / potential problems</span>
       </div>
-
-      {copiedLabel ? <p className="text-inspector-feedback">{copiedLabel} copied</p> : null}
-
-      {warnings.length > 0 ? (
-        <div className="text-inspector-warnings">
-          <div className="panel-heading compact">
-            <h3>Warnings</h3>
-            <p>High-signal findings from the inspected text.</p>
-          </div>
-
-          <div className="text-inspector-warning-list">
-            {warnings.map((warning) => (
-              <button
-                key={warning.id}
-                type="button"
-                className="note-card text-inspector-warning"
-                onClick={() => onJumpToWarning(warning)}
-              >
-                <strong>{warning.title}</strong>
-                <span>{warning.count.toLocaleString()} matches</span>
-                <p>{warning.description}</p>
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {visibleUnits.length > 0 ? (
-        <div className="text-inspector-results">
-          <div className="panel-heading compact">
-            <h3>Inspected Text</h3>
-            <p>Ordered code-point breakdown for the current input.</p>
-          </div>
-
-          <div className="text-inspector-list" role="listbox" aria-label="Text inspector rows">
-            {visibleUnits.map((unit) => {
-              const isSelected = selectedIndex === unit.index
-
-              return (
-                <button
-                  key={unit.id}
-                  ref={isSelected ? selectedRowRef : null}
-                  type="button"
-                  role="option"
-                  aria-selected={isSelected}
-                  aria-label={`Inspect ${unit.name} at line ${unit.line}, column ${unit.column}`}
-                  className={isSelected ? 'text-inspector-row is-selected' : 'text-inspector-row'}
-                  onClick={() => onSelectUnit(unit)}
-                >
-                  <span className="text-inspector-row__index">#{unit.index + 1}</span>
-                  <span className={`text-inspector-row__glyph kind-${unit.kind}`}>{getPrimaryGlyph(unit)}</span>
-                  <span className="text-inspector-row__meta">
-                    <strong>{unit.aliases?.[0] ?? unit.name}</strong>
-                    <small>
-                      {formatCodePoint(unit.cp)} - line {unit.line}, col {unit.column}
-                    </small>
-                  </span>
-                  <span className="inline-badges text-inspector-row__badges">
-                    <span>{unit.kind}</span>
-                    {unit.isSuspicious ? <span>Suspicious</span> : null}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      ) : (
-        <div className="empty-state text-inspector-empty">
-          <h3>No text inspected yet</h3>
-          <p>Paste text to break it into code points and inspect hidden characters.</p>
-        </div>
-      )}
-    </section>
+      <TextInspectorPreview
+        key={model.input} units={model.units} selection={model.selection}
+        revealContext={model.selection?.revealContext ?? false}
+        onSelectUnit={model.onSelectUnit}
+      />
+      <TextInspectorFindings
+        findings={model.findings} units={model.units} selection={model.selection}
+        onSelectFinding={model.onSelectFinding} onInspectUnit={onInspectUnit}
+      />
+      <TextInspectorList model={model} onInspectUnit={onInspectUnit} />
+    </>
   )
+}
+
+function AnalysisStatus({ model }: { model: InspectorModel }) {
+  let message = 'Analysis is current.'
+  if (!model.isReady) message = 'Loading character metadata. Your input is retained.'
+  else if (model.isUnsupported) {
+    message = `Input exceeds the ${MAX_INSPECTOR_INPUT.toLocaleString()} UTF-16 unit limit. `
+      + 'Inspect a smaller section. No text has been truncated; raw copy is still available.'
+  } else if (model.isAnalyzing) message = 'Analyzing in the background. You can keep editing.'
+  else if (!model.isCurrent) {
+    message = `Analysis is not current. Above ${LIVE_ANALYSIS_LIMIT.toLocaleString()} UTF-16 units, `
+      + 'choose Analyze to inspect the current text.'
+  }
+  return <p className="inspector-status" role="status">{message}</p>
 }

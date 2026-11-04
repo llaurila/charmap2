@@ -7,7 +7,7 @@ export type CharacterKind =
 
 export type AppMode = 'search' | 'inspector'
 
-export type InspectorFilter = 'all' | 'suspicious' | 'invisible'
+export type InspectorFilter = 'all' | 'findings' | 'invisible'
 
 export type SearchRecord = {
   cp: number
@@ -82,6 +82,8 @@ export type InspectorUnit = {
   index: number
   cp: number
   text: string
+  utf16Start: number
+  utf16End: number
   line: number
   column: number
   name: string
@@ -90,22 +92,29 @@ export type InspectorUnit = {
   script: string
   kind: CharacterKind
   flags: string[]
-  warningTags: string[]
-  isSuspicious: boolean
+  diagnosticProperties: string[]
+  findingIds: string[]
 }
 
-export type InspectorWarning = {
+export type InspectorOccurrence = {
+  startIndex: number
+  endIndex: number
+  utf16Start: number
+  utf16End: number
+}
+
+export type InspectorFinding = {
   id: string
+  severity: 'information' | 'check' | 'problem'
   title: string
   description: string
-  count: number
-  firstIndex: number
+  occurrences: InspectorOccurrence[]
 }
 
 export type InspectorSummary = {
   codePointCount: number
   lineCount: number
   invisibleCount: number
-  warningCount: number
-  hasSuspiciousContent: boolean
+  findingGroupCount: number
+  checkOrProblemGroupCount: number
 }

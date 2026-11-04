@@ -1,10 +1,10 @@
 # Roadmap
 
-## To Do
+## Released
 
-- Text Inspector
+- Text Inspector (v0.3.0): single-string diagnostics, annotated context, findings, and character inspection.
 
-See `specs/TEST_INSPECTOR.md` for the dedicated product description and phased implementation plan.
+See `specs/TEXT_INSPECTOR.md` for the single-string diagnostic product description and incremental implementation plan.
 
 ## Backlog
 

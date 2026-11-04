@@ -25,8 +25,8 @@ export function FeaturedSetsPanel({
         <div className="panel-heading">
           <h2>Inspector Notes</h2>
           <p>
-            Use Text Inspector to break pasted text into code points and jump
-            into the detail panel.
+            Locate hidden characters, understand their behavior, and inspect
+            individual occurrences in your text.
           </p>
         </div>
 
@@ -39,10 +39,10 @@ export function FeaturedSetsPanel({
         </div>
 
         <div className="note-card">
-          <h3>Current focus</h3>
+          <h3>Observations, not repairs</h3>
           <p>
-            Version one is code-point-first, with compact rows, warnings, and
-            shared detail inspection.
+            Invisible characters can be intentional. Findings do not certify
+            text as safe or invalid, and analysis never cleans or normalizes your input.
           </p>
         </div>
 

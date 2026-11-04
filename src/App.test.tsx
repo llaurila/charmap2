@@ -133,7 +133,175 @@ describe('App', () => {
     window.localStorage.clear()
     useInstallPromptMock.mockReset()
     useUpdateCheckMock.mockReset()
+    Reflect.deleteProperty(navigator, 'clipboard')
     vi.useRealTimers()
+  })
+
+  const clickButton = async (label: string): Promise<void> => {
+    const button = Array.from(container.querySelectorAll('button')).find((entry) =>
+      entry.getAttribute('aria-label') === label || entry.textContent === label)
+    expect(button, `Button: ${label}`).toBeInstanceOf(HTMLButtonElement)
+    await act(async () => { button?.click() })
+  }
+
+  const enterInspector = async (): Promise<void> => {
+    await act(async () => { root.render(<App />) })
+    await clickButton('Text Inspector')
+  }
+
+  const typeInspectorText = async (value: string): Promise<void> => {
+    const textarea = container.querySelector('.text-inspector-input textarea')
+    await act(async () => {
+      const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')
+      descriptor?.set?.call(textarea, value)
+      textarea?.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+  }
+
+  it('navigates findings in context and selects individual repeated occurrences', async () => {
+    await enterInspector()
+    await clickButton('No-break spaces')
+    expect(container.querySelectorAll('.inspector-preview__unit.is-hidden')).toHaveLength(3)
+    await clickButton('Next No-break spaces occurrence')
+    expect(container.querySelector('.inspector-preview__unit.is-selected')?.textContent)
+      .toBe('[NBSP]')
+    expect(container.querySelector('.text-inspector-row.is-selected')?.textContent)
+      .toContain('L2:7')
+    expect(container.querySelector('.inspector-detail-context')?.textContent)
+      .toContain('line 2, column 7')
+    await clickButton('Inspect character for No-break spaces')
+    expect(container.querySelector('.severity-check')?.textContent).toContain('2 of 2')
+    await clickButton('Previous No-break spaces occurrence')
+    expect(container.querySelector('.text-inspector-row.is-selected')?.textContent)
+      .toContain('L1:7')
+  })
+
+  it('reveals finding context without scrolling away to the breakdown', async () => {
+    const original = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView')
+    const scrolled: Element[] = []
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: function (this: Element) { scrolled.push(this) },
+    })
+    try {
+      await enterInspector()
+      await clickButton('No-break spaces')
+      await clickButton('Next No-break spaces occurrence')
+      expect(scrolled).toHaveLength(1)
+      expect(scrolled[0]?.classList.contains('inspector-preview__unit')).toBe(true)
+    } finally {
+      if (original) Object.defineProperty(Element.prototype, 'scrollIntoView', original)
+      else Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+    }
+  })
+
+  it('keeps pending search state separate from inspector selection', async () => {
+    await act(async () => { root.render(<App />) })
+    await act(async () => {
+      setInputValue(container.querySelector('input[type="search"]') as HTMLInputElement, 'arrow')
+    })
+    await clickButton('Text Inspector')
+    await typeInspectorText('A\u200D')
+    await act(async () => {
+      (container.querySelectorAll('.text-inspector-row')[1] as HTMLButtonElement).click()
+      vi.advanceTimersByTime(500)
+    })
+    expect(container.querySelector('.detail-panel h2')?.textContent).toBe('ZERO WIDTH JOINER')
+    await clickButton('Search')
+    const searchInput = container.querySelector('input[type="search"]') as HTMLInputElement
+    expect(searchInput.value).toBe('arrow')
+    expect(container.querySelector('.detail-panel h2')?.textContent).toBe('RIGHTWARDS ARROW')
+    await clickButton('Text Inspector')
+    expect(container.querySelector('.detail-panel h2')?.textContent).toBe('ZERO WIDTH JOINER')
+    await typeInspectorText('B')
+    expect(container.querySelector('.detail-panel h2')).toBeNull()
+    expect(container.querySelector('.inspector-detail-context')).toBeNull()
+  })
+
+  it('distinguishes a filtered empty view from empty input and does not flag normal structure',
+    async () => {
+      await enterInspector()
+      await typeInspectorText('hello\tworld\n')
+      expect(container.querySelectorAll('.severity-problem, .severity-check')).toHaveLength(0)
+      await clickButton('Findings')
+      expect(container.textContent).toContain('No matches for this filter')
+      expect(container.textContent).not.toContain('No text inspected yet')
+      expect((container.querySelector('textarea') as HTMLTextAreaElement).value)
+        .toBe('hello\tworld\n')
+      await clickButton('Show all characters')
+      expect(container.querySelectorAll('.text-inspector-row')).toHaveLength(12)
+      await clickButton('Clear text')
+      expect(container.textContent).toContain('No text inspected yet')
+      expect(document.activeElement).toBe(container.querySelector('textarea'))
+    })
+
+  it('supports menu keyboard navigation, Escape, outside click, and whole-input exports',
+    async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true, value: { writeText },
+      })
+      await enterInspector()
+      await typeInspectorText('A\u00A0')
+      await clickButton('Findings')
+      await clickButton('Copy and export text')
+      expect(document.activeElement?.textContent).toBe('Raw text')
+      await act(async () => {
+        document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', {
+          key: 'ArrowDown', bubbles: true,
+        }))
+      })
+      expect(document.activeElement?.textContent).toBe('Code point list')
+      await act(async () => {
+        document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', {
+          key: 'Escape', bubbles: true,
+        }))
+      })
+      const trigger = container.querySelector('button[aria-label="Copy and export text"]')
+      expect(document.activeElement).toBe(trigger)
+      expect(container.querySelector('[role="menu"]')).toBeNull()
+      await clickButton('Copy and export text')
+      await act(async () => {
+        container.querySelector('textarea')?.dispatchEvent(new Event('pointerdown', {
+          bubbles: true,
+        }))
+      })
+      expect(container.querySelector('[role="menu"]')).toBeNull()
+      await clickButton('Copy and export text')
+      await clickButton('JavaScript string literal')
+      const output = container.querySelector('textarea[aria-label="Export output"]')
+      expect(document.activeElement).toBe(output)
+      expect((output as HTMLTextAreaElement).value).toBe('"\\u0041\\u00A0"')
+      await clickButton('Copy JavaScript string literal')
+      expect(writeText).toHaveBeenCalledWith('"\\u0041\\u00A0"')
+      expect(container.textContent).toContain('JavaScript string literal copied')
+      await clickButton('Close preview')
+      expect(document.activeElement).toBe(trigger)
+      await clickButton('Clear text')
+      expect(container.textContent).not.toContain('JavaScript string literal copied')
+    })
+
+  it('warns explicitly before copying HTML that cannot preserve a lone surrogate', async () => {
+    await enterInspector()
+    await typeInspectorText('A\uD800')
+    await clickButton('Copy and export text')
+    await clickButton('HTML numeric references')
+    expect(container.textContent).toContain('Lossy HTML output: 1 values')
+    expect(container.querySelector('textarea[aria-label="Export output"]')?.textContent)
+      .toBe('&#x41;&#xD800;')
+    expect(Array.from(container.querySelectorAll('button')).some((button) =>
+      button.textContent === 'Copy lossy HTML output')).toBe(true)
+  })
+
+  it('pages long previews and rows instead of rendering every character at once', async () => {
+    await enterInspector()
+    await typeInspectorText('A'.repeat(350))
+    expect(container.querySelectorAll('.text-inspector-row')).toHaveLength(100)
+    expect(container.querySelectorAll('.inspector-preview__unit')).toHaveLength(200)
+    await clickButton('Next breakdown page')
+    expect(container.querySelector('.text-inspector-row')?.textContent).toContain('#101')
+    await clickButton('Next preview page')
+    expect(container.querySelectorAll('.inspector-preview__unit')).toHaveLength(150)
   })
 
   it('updates detail selection and supports direct lookup fallback', async () => {
@@ -368,7 +536,8 @@ describe('App', () => {
 
     expect(textarea).toBeInstanceOf(HTMLTextAreaElement)
     expect(document.activeElement).toBe(textarea)
-    expect(container.textContent).toContain('Text Inspector Active')
+    expect(container.querySelector('.hero textarea')).toBeNull()
+    expect(container.querySelector('.search-panel')).toBeNull()
 
     await act(async () => {
       const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')
@@ -378,8 +547,8 @@ describe('App', () => {
     })
 
     expect(container.textContent).toContain('3 code points')
-    expect(container.textContent).toContain('Warnings')
-    expect(container.textContent).toContain('No-break or uncommon space characters')
+    expect(container.textContent).toContain('Findings')
+    expect(container.textContent).toContain('these spaces prevent a line break')
 
     const inspectorRows = Array.from(container.querySelectorAll('.text-inspector-row'))
 

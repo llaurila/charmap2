@@ -22,6 +22,9 @@ export function useUnicodeData(): UseUnicodeDataResult {
   const isMountedRef = useRef(true)
 
   useEffect(() => {
+    // React Strict Mode replays effects in development. Restore the mounted
+    // state on setup so lazy block responses aren't discarded after replay.
+    isMountedRef.current = true
     return () => {
       isMountedRef.current = false
     }

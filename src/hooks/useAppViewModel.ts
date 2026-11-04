@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { featuredSets } from '../data/featuredSets'
 import type { AppMode, ResultRecord, SearchRecord } from '../types/unicode'
@@ -22,6 +22,7 @@ type AppViewModel = {
     isPinned: boolean
     onTogglePinned: () => void
     selectedDetailRecord: ResultRecord | null
+    inspectorContext?: { line: number; column: number; excerpt: string }
   }
   featuredSetsPanel: {
     appMode: AppMode
@@ -35,18 +36,6 @@ type AppViewModel = {
     appMode: AppMode
     blockCount: number
     indexedCharacterCount: number
-    inspectorInput: string
-    onInspectorInputChange: (value: string) => void
-    onInspectorReset: () => void
-    inspectorMenu?: {
-      actions: ReturnType<typeof useTextInspector>['actions']
-      filter: ReturnType<typeof useTextInspector>['filter']
-      hasInput: boolean
-      isOpen: boolean
-      onCopyAction: ReturnType<typeof useTextInspector>['onCopyAction']
-      onSelectFilter: ReturnType<typeof useTextInspector>['onSelectFilter']
-      onToggle: ReturnType<typeof useTextInspector>['onToggleMenu']
-    }
   }
   pinnedPanel: {
     items: ResultRecord[]
@@ -90,9 +79,11 @@ export function useAppViewModel(): AppViewModel {
     loadBlock,
     loadError,
     searchIndex,
-    selectedCp,
     setSelectedCp,
   } = useUnicodeData()
+  // Search and inspector own their selections independently. Pending search
+  // updates must never replace a selected occurrence of inspected text.
+  const [selectedCp, setSearchSelectedCp] = useState<number | null>(null)
   const searchIndexByCp = useMemo(
     () => new Map<number, SearchRecord>(searchIndex.map((record) => [record.cp, record])),
     [searchIndex],
@@ -116,8 +107,11 @@ export function useAppViewModel(): AppViewModel {
     [pinnedRecords, selectedCp],
   )
   const textInspector = useTextInspector({
+    blockIndex,
+    isReady,
+    loadBlock,
     loadedRecordsByCp,
-    searchIndex,
+    searchIndexByCp,
     setSelectedCp,
   })
   const {
@@ -126,20 +120,21 @@ export function useAppViewModel(): AppViewModel {
     isDirectLookupLoading,
     isDirectLookupOnly,
     results,
-    selectedDetailRecord,
+    selectedDetailRecord: searchDetailRecord,
   } = useCharacterSearchResults({
     activeSet,
     blockIndex,
-    detachedSelectionRecord:
-      appMode === 'inspector' ? textInspector.selectedRecord : selectedPinnedRecord,
+    detachedSelectionRecord: selectedPinnedRecord,
     hasQuery,
     loadedBlocks,
     loadBlock,
     query,
     searchIndex,
     selectedCp,
-    setSelectedCp,
+    setSelectedCp: setSearchSelectedCp,
   })
+  const selectedDetailRecord = appMode === 'inspector'
+    ? textInspector.detailRecord : searchDetailRecord
   const selectedDetailCp = selectedDetailRecord?.cp ?? null
   const selectedResultsCp = useMemo(
     () =>
@@ -160,7 +155,7 @@ export function useAppViewModel(): AppViewModel {
     resultsCount: results.length,
     searchStatusText,
     selectedCp: selectedResultsCp,
-    setSelectedCp,
+    setSelectedCp: setSearchSelectedCp,
   })
   const pinnedItems = useMemo(
     () =>
@@ -172,9 +167,10 @@ export function useAppViewModel(): AppViewModel {
   const selectPinnedCharacter = useCallback(
     (cp: number): void => {
       resetSearch()
-      setSelectedCp(cp)
+      setAppMode('search')
+      setSearchSelectedCp(cp)
     },
-    [resetSearch, setSelectedCp],
+    [resetSearch, setAppMode],
   )
   const togglePinnedSelection = useCallback((): void => {
     if (!selectedDetailRecord) {
@@ -206,6 +202,7 @@ export function useAppViewModel(): AppViewModel {
       isPinned: selectedDetailCp !== null ? isPinned(selectedDetailCp) : false,
       onTogglePinned: togglePinnedSelection,
       selectedDetailRecord,
+      inspectorContext: appMode === 'inspector' ? textInspector.detailContext : undefined,
     },
     featuredSetsPanel: {
       appMode,
@@ -219,21 +216,6 @@ export function useAppViewModel(): AppViewModel {
       appMode,
       blockCount: blockIndex.length,
       indexedCharacterCount: searchIndex.length,
-      inspectorInput: textInspector.input,
-      onInspectorInputChange: textInspector.onInputChange,
-      onInspectorReset: textInspector.onReset,
-      inspectorMenu:
-        appMode === 'inspector'
-          ? {
-              actions: textInspector.actions,
-              filter: textInspector.filter,
-              hasInput: textInspector.input.length > 0,
-              isOpen: textInspector.isMenuOpen,
-              onCopyAction: textInspector.onCopyAction,
-              onSelectFilter: textInspector.onSelectFilter,
-              onToggle: textInspector.onToggleMenu,
-            }
-          : undefined,
     },
     pinnedPanel: {
       items: pinnedItems,

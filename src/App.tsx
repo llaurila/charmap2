@@ -96,11 +96,7 @@ export default function App() {
         appMode={header.appMode}
         blockCount={header.blockCount}
         indexedCharacterCount={header.indexedCharacterCount}
-        inspectorInput={header.inspectorInput}
-        inspectorMenu={header.inspectorMenu}
         onAppModeChange={searchPanel.onAppModeChange}
-        onInspectorInputChange={header.onInspectorInputChange}
-        onInspectorReset={header.onInspectorReset}
       />
 
       <InstallPanel />
@@ -122,33 +118,19 @@ export default function App() {
           selectedCp={pinnedPanel.selectedCp}
         />
         <div className="workspace-main">
-          <SearchPanel {...searchPanel} />
+          {appMode === 'search' ? <SearchPanel {...searchPanel} /> : null}
           {appMode === 'search' ? (
             <ResultsPanel model={resultsPanelModel} />
           ) : (
             <TextInspectorPanel
-              announceMessage={textInspector.announceMessage}
-              copiedLabel={textInspector.copiedLabel}
-              filterLabel={textInspector.filterLabel}
-              onJumpToWarning={(warning) => {
-                textInspector.onJumpToWarning(warning)
+              model={textInspector}
+              onInspectUnit={(unit) => {
+                textInspector.onSelectUnit(unit, false)
 
                 if (shouldAutoScrollDetailPanel()) {
                   scrollDetailPanelIntoView()
                 }
               }}
-              onReset={textInspector.onReset}
-              onSelectUnit={(unit) => {
-                textInspector.onSelectUnit(unit)
-
-                if (shouldAutoScrollDetailPanel()) {
-                  scrollDetailPanelIntoView()
-                }
-              }}
-              selectedIndex={textInspector.selectedIndex}
-              summary={textInspector.summary}
-              visibleUnits={textInspector.visibleUnits}
-              warnings={textInspector.warnings}
             />
           )}
         </div>
@@ -157,6 +139,7 @@ export default function App() {
           isPinned={detailPanel.isPinned}
           onTogglePinned={detailPanel.onTogglePinned}
           selectedDetailRecord={detailPanel.selectedDetailRecord}
+          inspectorContext={detailPanel.inspectorContext}
         />
       </main>
 
