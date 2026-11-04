@@ -71,6 +71,20 @@ Build the app:
 pnpm run build
 ```
 
+## Usage analytics
+
+The official production site uses [GoatCounter](https://www.goatcounter.com/) for
+cookieless pageview, approximate visitor, and country statistics. Analytics loads
+asynchronously only on `https://llaurila.github.io/charmap2/` in production builds.
+Development servers, local previews, and deployments on other origins do not load
+the analytics script.
+
+The integration reports a fixed app path and title, excludes URL query parameters
+and referrers, and does not track interactions or send search, inspector, or
+clipboard contents. The footer includes a privacy explanation. In GoatCounter's
+account settings, keep individual pageview collection disabled to use aggregate
+statistics.
+
 ## Unicode data pipeline
 
 - vendored Unicode source files live under `vendor/unicode/18.0.0/`

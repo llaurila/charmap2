@@ -497,6 +497,21 @@ code {
   text-align: center;
 }
 
+.privacy-note {
+  max-width: 42rem;
+  margin: 0.5rem auto 0;
+  color: #465361;
+  letter-spacing: normal;
+}
+
+.privacy-note summary {
+  cursor: pointer;
+}
+
+.privacy-note p {
+  line-height: 1.5;
+}
+
 .panel {
   padding: 1.25rem;
 }

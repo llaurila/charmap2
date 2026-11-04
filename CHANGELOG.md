@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project currently uses date-ba
 
 ## [Unreleased]
 
+### Added
+
+- Added cookieless GoatCounter usage analytics on the official production site and a footer privacy explanation.
+
 ### Changed
 
 - Migrated dependency management, development commands, and CI workflows from npm to pnpm.
