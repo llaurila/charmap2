@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project currently uses date-ba
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-11-04
+
 ### Added
 
 - Added cookieless GoatCounter usage analytics on the official production site and a footer privacy explanation.
